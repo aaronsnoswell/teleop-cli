@@ -4,6 +4,8 @@
 using namespace chai3d;
 using namespace std;
 
+#define KEY_ESCAPE	27
+
 // maximum number of devices supported by this application
 const int MAX_DEVICES = 16;
 
@@ -31,7 +33,7 @@ cShapeSphere* cursor[MAX_DEVICES];
 cShapeLine* velocity[MAX_DEVICES];
 
 // a flag for using damping (ON/OFF)
-bool useDamping = true;
+bool useDamping = false;
 
 // a flag for using force field (ON/OFF)
 bool useForceField = true;
@@ -58,12 +60,28 @@ void updateHaptics(void);
 void close(void);
 
 
+// Get Input
+bool getInput(char *c)
+{
+	if (_kbhit())
+	{
+		*c = _getch();
+		return true;
+	}
+	return false;
+}
+
+
 int main(int argc, char* argv[])
 {
     // INITIALIZATION
-    cout << endl;
-    cout << "Teleop CLI program" << endl;
-    cout << endl << endl;
+	cout << "Teleop CLI program" << endl << endl;
+
+	cout << "Press [Escape] to exit" << endl;
+	cout << "Press [F] to force field" << endl;
+	cout << "Press [D] to toggle damping" << endl;
+
+	cout << endl;
 
     // WORLD - CAMERA - LIGHTING
 
@@ -132,25 +150,53 @@ int main(int argc, char* argv[])
     atexit(close);
 
     // MAIN LOOP
-    for (int i=0; i<5000; i++)
+	char key = ' ';
+    while(true)
     {
-		// output position data
-		for (int i = 0; i<numHapticDevices; i++)
+		if (getInput(&key))
 		{
-			cout << hapticDevicePosition[i].str(3) << endl;
+			// Handle key input
+			//cout << endl << "You Pressed: " << key << endl;
+
+
+			if (key == KEY_ESCAPE)
+			{
+				// Quit
+				cout << '\r';
+				cout << "Exiting...";
+				cout << "                                                            " << endl;
+				break;
+			}
+			else if (key == 'd')
+			{
+				useDamping = !useDamping;
+
+				cout << '\r';
+				cout << "Damping ";
+				if (useDamping) cout << "enabled";
+				else cout << "disabled";
+				cout << "                                                            " << endl;
+			}
+			else if (key == 'f')
+			{
+				useForceField = !useForceField;
+
+				cout << '\r';
+				cout << "Force field ";
+				if (useForceField) cout << "enabled";
+				else cout << "disabled";
+				cout << "                                                            " << endl;
+			}
 		}
 
-		// output haptic rate data
-		/*
-		if (numHapticDevices == 0)
+		// Output position data
+		for (int i = 0; i<numHapticDevices; i++)
 		{
-			cout << "no haptic device detected" << endl;
+			// Rollback a line to not flood the terminal
+			cout << '\r';
+			cout << "Device position: " << hapticDevicePosition[i].str(3);
 		}
-		else
-		{
-			cout << cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" << endl;
-		}
-		*/
+
     }
 
     // exit
