@@ -22,7 +22,9 @@
     <ClCompile Include="teleop-cli.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitignore" />
     <None Include="postbuild.bat" />
+    <None Include="README.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectName>teleop-cli</ProjectName>
