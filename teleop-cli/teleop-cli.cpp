@@ -4,11 +4,6 @@
 using namespace chai3d;
 using namespace std;
 
-// GENERAL SETTINGS
-cStereoMode stereoMode = C_STEREO_DISABLED;
-bool fullscreen = false;
-bool mirroredDisplay = false;
-
 // maximum number of devices supported by this application
 const int MAX_DEVICES = 16;
 
@@ -16,12 +11,6 @@ const int MAX_DEVICES = 16;
 
 // a world that contains all objects of the virtual environment
 cWorld* world;
-
-// a camera to render the world in the window display
-cCamera* camera;
-
-// a light source to illuminate the objects in the world
-cDirectionalLight *light;
 
 // a haptic device handler
 cHapticDeviceHandler* handler;
@@ -35,9 +24,6 @@ int numHapticDevices = 0;
 // global variable to store the position [m] of each haptic device
 cVector3d hapticDevicePosition[MAX_DEVICES];
 
-// a font for rendering text
-cFontPtr font;
-
 // some small spheres (cursor) representing position of each haptic device
 cShapeSphere* cursor[MAX_DEVICES];
 
@@ -45,7 +31,7 @@ cShapeSphere* cursor[MAX_DEVICES];
 cShapeLine* velocity[MAX_DEVICES];
 
 // a flag for using damping (ON/OFF)
-bool useDamping = false;
+bool useDamping = true;
 
 // a flag for using force field (ON/OFF)
 bool useForceField = true;
@@ -87,43 +73,6 @@ int main(int argc, char* argv[])
     // set the background color of the environment
     world->m_backgroundColor.setBlack();
 
-    // create a camera and insert it into the virtual world
-    camera = new cCamera(world);
-    world->addChild(camera);
-
-    // position and orient the camera
-    camera->set( cVector3d(0.5, 0.0, 0.0),    // camera position (eye)
-                 cVector3d(0.0, 0.0, 0.0),    // look at position (target)
-                 cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
-
-    // set the near and far clipping planes of the camera
-    camera->setClippingPlanes(0.01, 10.0);
-
-    // set stereo mode
-    camera->setStereoMode(stereoMode);
-
-    // set stereo eye separation and focal length (applies only if stereo is enabled)
-    camera->setStereoEyeSeparation(0.01);
-    camera->setStereoFocalLength(0.5);
-
-    // set vertical mirrored display mode
-    camera->setMirrorVertical(mirroredDisplay);
-
-    // create a directional light source
-    light = new cDirectionalLight(world);
-
-    // insert light source inside world
-    world->addChild(light);
-
-    // enable light source
-    light->setEnabled(true);                   
-
-    // define direction of light beam
-    light->setDir(-1.0, 0.0, 0.0); 
-
-    // create a font
-    font = NEW_CFONTCALIBRI20();
-
     // HAPTIC DEVICES
 
     // create a haptic device handler
@@ -159,7 +108,6 @@ int main(int argc, char* argv[])
         // insert line inside world
         world->addChild(velocity[i]);
 
-
         // display a reference frame if haptic device supports orientations
         if (info.m_sensedRotation == true)
         {
@@ -183,9 +131,7 @@ int main(int argc, char* argv[])
     // setup callback when application exits
     atexit(close);
 
-    // MAIN GRAPHIC LOOP
-
-    // main graphic loop
+    // MAIN LOOP
     for (int i=0; i<5000; i++)
     {
 		// output position data
@@ -205,12 +151,6 @@ int main(int argc, char* argv[])
 			cout << cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" << endl;
 		}
 		*/
-
-		// update shadow maps (if any)
-		world->updateShadowMaps(false, mirroredDisplay);
-
-		// render world
-		//camera->renderView(width, height);
     }
 
     // exit
