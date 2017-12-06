@@ -1,10 +1,24 @@
+// Simple CLI app to tele operate the jaco arm from the omega.7
 
+#include <Windows.h>
+#include <conio.h>
+#include <iostream>
+
+// CHAI3D header
 #include "chai3d.h"
+
+// JACO2 Headers
+#include "CommunicationLayerWindows.h"
+#include "CommandLayer.h"
+#include "KinovaTypes.h"
+
+
+#define KEY_ESCAPE	27
+
 
 using namespace chai3d;
 using namespace std;
 
-#define KEY_ESCAPE	27
 
 // maximum number of devices supported by this application
 const int MAX_DEVICES = 16;

@@ -21,6 +21,9 @@
   <ItemGroup>
     <ClCompile Include="teleop-cli.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="postbuild.bat" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectName>teleop-cli</ProjectName>
     <ProjectGuid>{11717B23-4CA2-47B2-A66E-57FED8A8034A}</ProjectGuid>
@@ -93,7 +96,7 @@
       <AdditionalOptions>/MP %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -125,6 +128,12 @@
       </DataExecutionPrevention>
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
+    <PostBuildEvent>
+      <Command>postbuild.bat bin/win-$(Platform)</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy DLLs post-build</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -133,7 +142,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -165,6 +174,12 @@
       </DataExecutionPrevention>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <PostBuildEvent>
+      <Command>postbuild.bat bin/win-$(Platform)</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy DLLs post-build</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -176,7 +191,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -212,6 +227,12 @@
       <TargetMachine>MachineX86</TargetMachine>
       <ProgramDatabaseFile>$(TargetDir)$(TargetName).pdb</ProgramDatabaseFile>
     </Link>
+    <PostBuildEvent>
+      <Command>postbuild.bat bin/win-$(Platform)</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy DLLs post-build</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -225,7 +246,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -261,6 +282,12 @@
       <TargetMachine>MachineX64</TargetMachine>
       <ProgramDatabaseFile>$(TargetDir)$(TargetName).pdb</ProgramDatabaseFile>
     </Link>
+    <PostBuildEvent>
+      <Command>postbuild.bat bin/win-$(Platform)</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy DLLs post-build</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)/Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
