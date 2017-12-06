@@ -26,6 +26,9 @@
     <None Include="postbuild.bat" />
     <None Include="README.md" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="jacowrapper.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectName>teleop-cli</ProjectName>
     <ProjectGuid>{11717B23-4CA2-47B2-A66E-57FED8A8034A}</ProjectGuid>
