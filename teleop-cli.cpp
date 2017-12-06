@@ -74,6 +74,25 @@ void updateHaptics(void);
 void close(void);
 
 
+
+
+//A handle to the API.
+HINSTANCE commandLayer_handle;
+
+//Function pointers to the functions we need
+int(*MyInitAPI)();
+int(*MyCloseAPI)();
+int(*MySendBasicTrajectory)(TrajectoryPoint command);
+int(*MyGetDevices)(KinovaDevice devices[MAX_KINOVA_DEVICE], int &result);
+int(*MySetActiveDevice)(KinovaDevice device);
+int(*MyMoveHome)();
+int(*MyInitFingers)();
+int(*MyGetCartesianCommand)(CartesianPosition &);
+
+
+
+
+
 // Get Input
 bool getInput(char *c)
 {
@@ -91,13 +110,130 @@ int main(int argc, char* argv[])
     // INITIALIZATION
 	cout << "Teleop CLI program" << endl << endl;
 
-	cout << "Press [Escape] to exit" << endl;
-	cout << "Press [F] to force field" << endl;
-	cout << "Press [D] to toggle damping" << endl;
+	cout << "Press [Esc] or [q] to exit" << endl;
+	cout << "Press [f] to force field" << endl;
+	cout << "Press [d] to toggle damping" << endl;
 
 	cout << endl;
 
-    // WORLD - CAMERA - LIGHTING
+
+	// We load the API.
+	commandLayer_handle = LoadLibrary("CommandLayerWindows.dll");
+
+	// We load the functions from the library (Under Windows, use GetProcAddress)
+	MyInitAPI = (int(*)()) GetProcAddress(commandLayer_handle, "InitAPI");
+	MyCloseAPI = (int(*)()) GetProcAddress(commandLayer_handle, "CloseAPI");
+	MyMoveHome = (int(*)()) GetProcAddress(commandLayer_handle, "MoveHome");
+	MyInitFingers = (int(*)()) GetProcAddress(commandLayer_handle, "InitFingers");
+	MyGetDevices = (int(*)(KinovaDevice devices[MAX_KINOVA_DEVICE], int &result)) GetProcAddress(commandLayer_handle, "GetDevices");
+	MySetActiveDevice = (int(*)(KinovaDevice devices)) GetProcAddress(commandLayer_handle, "SetActiveDevice");
+	MySendBasicTrajectory = (int(*)(TrajectoryPoint)) GetProcAddress(commandLayer_handle, "SendBasicTrajectory");
+	MyGetCartesianCommand = (int(*)(CartesianPosition &)) GetProcAddress(commandLayer_handle, "GetCartesianCommand");
+
+	// Verify that all functions has been loaded correctly
+	if ((MyInitAPI == NULL) || (MyCloseAPI == NULL) || (MySendBasicTrajectory == NULL) ||
+		(MyGetDevices == NULL) || (MySetActiveDevice == NULL) || (MyGetCartesianCommand == NULL) ||
+		(MyMoveHome == NULL) || (MyInitFingers == NULL))
+
+	{
+		cout << "Error loading JACO2 API" << endl;
+		return 0;
+	}
+
+	// Do Jaco stuff
+
+	CartesianPosition currentCommand;
+
+	int result = (*MyInitAPI)();
+
+	cout << "Initialization's result:" << result << endl;
+
+	KinovaDevice list[MAX_KINOVA_DEVICE];
+
+	int devicesCount = MyGetDevices(list, result);
+
+	for (int i=0; i<devicesCount; i++)
+	{
+		cout << "Found a robot on the USB bus (" << list[i].SerialNumber << ")" << endl;
+
+		// Setting the current device as the active device.
+		MySetActiveDevice(list[i]);
+
+		cout << "Send the robot to HOME position" << endl;
+		MyMoveHome();
+
+		cout << "Initializing the fingers" << endl;
+		MyInitFingers();
+
+		TrajectoryPoint pointToSend;
+		pointToSend.InitStruct();
+
+		//We specify that this point will be used an angular(joint by joint) velocity vector.
+		pointToSend.Position.Type = CARTESIAN_VELOCITY;
+
+		pointToSend.Position.CartesianPosition.X = 0;
+		pointToSend.Position.CartesianPosition.Y = -0.15; //Move along Y axis at 20 cm per second
+		pointToSend.Position.CartesianPosition.Z = 0;
+		pointToSend.Position.CartesianPosition.ThetaX = 0;
+		pointToSend.Position.CartesianPosition.ThetaY = 0;
+		pointToSend.Position.CartesianPosition.ThetaZ = 0;
+
+		pointToSend.Position.Fingers.Finger1 = 0;
+		pointToSend.Position.Fingers.Finger2 = 0;
+		pointToSend.Position.Fingers.Finger3 = 0;
+
+		for (int i=0; i<200; i++)
+		{
+			// We send the velocity vector every 5 ms as long as we want
+			// the robot to move along that vector
+			MySendBasicTrajectory(pointToSend);
+			Sleep(5);
+		}
+
+		pointToSend.Position.CartesianPosition.Y = 0;
+		pointToSend.Position.CartesianPosition.Z = 0.1;
+
+		for (int i = 0; i < 200; i++)
+		{
+			// We send the velocity vector every 5 ms as long as we want the
+			// robot to move along that vector
+			MySendBasicTrajectory(pointToSend);
+			Sleep(5);
+		}
+
+		cout << "Send the robot to HOME position" << endl;
+		MyMoveHome();
+
+		// We specify that this point will be an angular(joint by joint) position
+		pointToSend.Position.Type = CARTESIAN_POSITION;
+
+		// We get the actual angular command of the robot
+		MyGetCartesianCommand(currentCommand);
+
+		pointToSend.Position.CartesianPosition.X = currentCommand.Coordinates.X;
+		pointToSend.Position.CartesianPosition.Y = currentCommand.Coordinates.Y - 0.1f;
+		pointToSend.Position.CartesianPosition.Z = currentCommand.Coordinates.Z;
+		pointToSend.Position.CartesianPosition.ThetaX = currentCommand.Coordinates.ThetaX;
+		pointToSend.Position.CartesianPosition.ThetaY = currentCommand.Coordinates.ThetaY;
+		pointToSend.Position.CartesianPosition.ThetaZ = currentCommand.Coordinates.ThetaZ;
+
+		cout << "*********************************" << endl;
+		cout << "Sending the first point to the robot." << endl;
+		MySendBasicTrajectory(pointToSend);
+
+		pointToSend.Position.CartesianPosition.Z = currentCommand.Coordinates.Z + 0.1f;
+		cout << "Sending the second point to the robot." << endl;
+		MySendBasicTrajectory(pointToSend);
+
+		cout << "*********************************" << endl << endl << endl;
+	}
+
+	cout << endl << "Closing JACO2 API" << endl;
+	result = (*MyCloseAPI)();
+
+	FreeLibrary(commandLayer_handle);
+
+    // WORLD
 
     // create a new world.
     world = new cWorld();
@@ -173,7 +309,7 @@ int main(int argc, char* argv[])
 			//cout << endl << "You Pressed: " << key << endl;
 
 
-			if (key == KEY_ESCAPE)
+			if ((key == KEY_ESCAPE) || (key == 'q'))
 			{
 				// Quit
 				cout << '\r';
