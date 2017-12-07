@@ -14,7 +14,7 @@
 #define KEY_ESCAPE			27
 
 // Maximum haptic devices supported by this application
-#define MAX_DEVICES			16
+#define MAX_HAPTIC_DEVICES	16
 
 // JACO2 SDK communication mode
 #define JACOSDK_USB			false
@@ -26,17 +26,61 @@ using namespace std;
 using namespace jacowrapper;
 
 
+/**
+ * A simple struct to contain the state of a haptic device
+ */
+typedef struct HapticDevicePose
+{
+	cVector3d position;
+	cMatrix3d rotation;
+	cVector3d linearVelocity;
+	cVector3d angularVelocity;
+	cVector3d force;
+	cVector3d torque;
+
+	double gripperAngle = 0;
+	double gripperAngularVelocity = 0;
+	double gripperForce = 0;
+
+	bool button0 = false;
+	bool button1 = false;
+	bool button2 = false;
+	bool button3 = false;
+
+	void ReadFromDevice(cGenericHapticDevicePtr d)
+	{
+		d->getPosition(position);
+		d->getRotation(rotation);
+		d->getLinearVelocity(linearVelocity);
+		d->getAngularVelocity(angularVelocity);
+		d->getForce(force);
+		d->getTorque(torque);
+
+		d->getGripperAngleRad(gripperAngle);
+		d->getGripperAngularVelocity(gripperAngularVelocity);
+		d->getGripperForce(gripperForce);
+
+		d->getUserSwitch(0, button0);
+		d->getUserSwitch(1, button1);
+		d->getUserSwitch(2, button2);
+		d->getUserSwitch(3, button3);
+	};
+
+};
+
+
 #pragma region Declarations
 
 // Global variables
 cWorld* world;
 cHapticDeviceHandler* handler;
-cGenericHapticDevicePtr hapticDevice[MAX_DEVICES];
+cGenericHapticDevicePtr hapticDevice[MAX_HAPTIC_DEVICES];
+cShapeSphere* cursor[MAX_HAPTIC_DEVICES];
+cShapeLine* velocity[MAX_HAPTIC_DEVICES];
+HapticDevicePose hapticDevicePose[MAX_HAPTIC_DEVICES];
 int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
-cVector3d hapticDevicePosition[MAX_DEVICES];
-cShapeSphere* cursor[MAX_DEVICES];
-cShapeLine* velocity[MAX_DEVICES];
+
 
 // Demo configuration flags
 bool useDamping = false;
@@ -105,49 +149,26 @@ void updateHaptics(void)
 		for (int i = 0; i<hapticDeviceCount; i++)
 		{
 			// Read status
-			cVector3d position;
-			cMatrix3d rotation;
-			double gripperAngle;
-			cVector3d linearVelocity;
-			cVector3d angularVelocity;
-			double gripperAngularVelocity;
-			bool button0, button1, button2, button3;
-			button0 = false;
-			button1 = false;
-			button2 = false;
-			button3 = false;
-
-			hapticDevice[i]->getPosition(position);
-			hapticDevice[i]->getRotation(rotation);
-			hapticDevice[i]->getGripperAngleRad(gripperAngle);
-			hapticDevice[i]->getLinearVelocity(linearVelocity);
-			hapticDevice[i]->getAngularVelocity(angularVelocity);
-			hapticDevice[i]->getGripperAngularVelocity(gripperAngularVelocity);
-			hapticDevice[i]->getUserSwitch(0, button0);
-			hapticDevice[i]->getUserSwitch(1, button1);
-			hapticDevice[i]->getUserSwitch(2, button2);
-			hapticDevice[i]->getUserSwitch(3, button3);
+			hapticDevicePose[i].ReadFromDevice(hapticDevice[i]);
 
 			// Update visualisations
-			velocity[i]->m_pointA = position;
-			velocity[i]->m_pointB = cAdd(position, linearVelocity);
-			cursor[i]->setLocalPos(position);
-			cursor[i]->setLocalRot(rotation);
+			cursor[i]->setLocalPos(hapticDevicePose[i].position);
+			cursor[i]->setLocalRot(hapticDevicePose[i].rotation);
 
 			// Adjust the  color of the cursor according to user switch
-			if (button0)
+			if (hapticDevicePose[i].button0)
 			{
 				cursor[i]->m_material->setGreenMediumAquamarine();
 			}
-			else if (button1)
+			else if (hapticDevicePose[i].button1)
 			{
 				cursor[i]->m_material->setYellowGold();
 			}
-			else if (button2)
+			else if (hapticDevicePose[i].button2)
 			{
 				cursor[i]->m_material->setOrangeCoral();
 			}
-			else if (button3)
+			else if (hapticDevicePose[i].button3)
 			{
 				cursor[i]->m_material->setPurpleLavender();
 			}
@@ -155,9 +176,6 @@ void updateHaptics(void)
 			{
 				cursor[i]->m_material->setBlueRoyal();
 			}
-
-			// Update global variable for graphic display update
-			hapticDevicePosition[i] = position;
 
 			// COMPUTE AND APPLY FORCES
 
@@ -178,16 +196,16 @@ void updateHaptics(void)
 			{
 				// Compute linear force
 				double Kp = 25; // [N/m]
-				cVector3d forceField = Kp * (desiredPosition - position);
+				cVector3d forceField = Kp * (desiredPosition - hapticDevicePose[i].position);
 				force.add(forceField);
 
 				// Compute angular torque
 				double Kr = 0.05; // [N/m.rad]
 				cVector3d axis;
 				double angle;
-				cMatrix3d deltaRotation = cTranspose(rotation) * desiredRotation;
+				cMatrix3d deltaRotation = cTranspose(hapticDevicePose[i].rotation) * desiredRotation;
 				deltaRotation.toAxisAngle(axis, angle);
-				torque = rotation * ((Kr * angle) * axis);
+				torque = hapticDevicePose[i].rotation * ((Kr * angle) * axis);
 			}
 
 			// Apply damping term
@@ -197,17 +215,17 @@ void updateHaptics(void)
 
 				// Compute linear damping force
 				double Kv = 1.0 * info.m_maxLinearDamping;
-				cVector3d forceDamping = -Kv * linearVelocity;
+				cVector3d forceDamping = -Kv * hapticDevicePose[i].linearVelocity;
 				force.add(forceDamping);
 
 				// Compute angular damping force
 				double Kvr = 1.0 * info.m_maxAngularDamping;
-				cVector3d torqueDamping = -Kvr * angularVelocity;
+				cVector3d torqueDamping = -Kvr * hapticDevicePose[i].angularVelocity;
 				torque.add(torqueDamping);
 
 				// Compute gripper angular damping force
 				double Kvg = 1.0 * info.m_maxGripperAngularDamping;
-				gripperForce = gripperForce - Kvg * gripperAngularVelocity;
+				gripperForce = gripperForce - Kvg * hapticDevicePose[i].gripperAngularVelocity;
 			}
 
 			// Send computed force, torque, and gripper force to haptic device
@@ -243,7 +261,7 @@ void updateJACO(void)
 	pointToSend.InitStruct();
 	pointToSend.Position.Type = CARTESIAN_POSITION;
 
-	// main haptic simulation loop
+	// Main JACO2 loop
 	while (JACOSimulationRunning)
 	{
 		// Get the current robot command
@@ -255,7 +273,8 @@ void updateJACO(void)
 		* copy operation is cThread safe, but the documentation doesn't
 		* mention this at all. Race condition here?
 		*/
-		cVector3d pos = hapticDevicePosition[0];
+		cVector3d pos = hapticDevicePose[0].position;
+
 
 		// Set the commanded position
 		pointToSend.Position.CartesianPosition.X = initialCommand.Coordinates.X + pos.x();
@@ -407,11 +426,11 @@ int main(int argc, char* argv[])
 		 * copy operation is cThread safe, but the documentation doesn't
 	     * mention this at all. Race condition here?
 		 */
-		cVector3d pos = hapticDevicePosition[0];
+		cVector3d pos = hapticDevicePose[0].position;
 
 		// Output current pos
 		cout << '\r';
-		cout << "Master position: " << hapticDevicePosition[0].str(3);
+		cout << "Master position: " << pos.str(3);
 
 		/*
 		printf(
