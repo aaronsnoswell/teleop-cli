@@ -88,8 +88,6 @@ cWorld* world;
 cHapticDeviceHandler* handler;
 cGenericHapticDevicePtr hapticDevice[MAX_HAPTIC_DEVICES];
 cHapticDeviceInfo hapticDeviceSpecification[MAX_HAPTIC_DEVICES];
-cShapeSphere* cursor[MAX_HAPTIC_DEVICES];
-cShapeLine* velocity[MAX_HAPTIC_DEVICES];
 HapticDevicePose hapticDevicePose[MAX_HAPTIC_DEVICES];
 int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
@@ -135,18 +133,12 @@ void close(void)
 	for (int i = 0; i<hapticDeviceCount; i++)
 	{
 		hapticDevice[i]->close();
-
-		// Delete per-device heap resources
-		delete cursor[i];
-		delete velocity[i];
 	}
 
 	// Delete heap resources
 	delete hapticsThread;
 	delete world;
 	delete handler;
-	delete [] &cursor;
-	delete [] &velocity;
 }
 
 
@@ -164,32 +156,6 @@ void updateHaptics(void)
 		{
 			// Read status
 			hapticDevicePose[i].ReadFromDevice(hapticDevice[i]);
-
-			// Update visualisations
-			cursor[i]->setLocalPos(hapticDevicePose[i].position);
-			cursor[i]->setLocalRot(hapticDevicePose[i].rotation);
-
-			// Adjust the  color of the cursor according to user switch
-			if (hapticDevicePose[i].button0)
-			{
-				cursor[i]->m_material->setGreenMediumAquamarine();
-			}
-			else if (hapticDevicePose[i].button1)
-			{
-				cursor[i]->m_material->setYellowGold();
-			}
-			else if (hapticDevicePose[i].button2)
-			{
-				cursor[i]->m_material->setOrangeCoral();
-			}
-			else if (hapticDevicePose[i].button3)
-			{
-				cursor[i]->m_material->setPurpleLavender();
-			}
-			else
-			{
-				cursor[i]->m_material->setBlueRoyal();
-			}
 
 			// Compute forces and torques
 			cVector3d force(0, 0, 0);
@@ -260,9 +226,13 @@ void updateJACO(void)
 	JACOSimulationRunning = true;
 	JACOSimulationFinished = false;
 
+	cout << "Initializing JACO arm" << endl;
+
 	// JACO initialisation
 	MyMoveHome();
 	MyInitFingers();
+
+	cout << endl << "JACO initialization done" << endl;
 
 	// Get initial robot pose
 	CartesianPosition initialCommand;
@@ -452,19 +422,6 @@ int main(int argc, char* argv[])
         hapticDevice[i]->open();
         hapticDevice[i]->calibrate();
         cHapticDeviceInfo info = hapticDevice[i]->getSpecifications();
-
-		// Add a cursor and velocity visulaisation
-        cursor[i] = new cShapeSphere(0.01);
-        world->addChild(cursor[i]);
-		velocity[i] = new cShapeLine(cVector3d(0,0,0), cVector3d(0,0,0));
-		world->addChild(velocity[i]);
-
-        // Show a frame if haptic device supports orientations
-        if (info.m_sensedRotation == true)
-        {
-            cursor[i]->setShowFrame(true);
-            cursor[i]->setFrameSize(0.05);
-        }
 
         // If the device has a gripper, enable the gripper to simulate a user switch
         hapticDevice[i]->setEnableGripperUserSwitch(true);
