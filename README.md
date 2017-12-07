@@ -33,5 +33,5 @@ The coordinate frames for the Force Dimension devices and Kinova JACO² arm we u
 <p align="center">
 <img src="Documentation/force-dimension-device-coordinate-frames.png" alt="Force Dimension Device Coordinate Frames" style="width:100%" />
 
-<img src="Documentation/jaco2-coordinate-frame.png" alt="JACO² Device Coordinate Frame" style="width:60%" />
+<img src="Documentation/jaco2-coordinate-frame.png" alt="JACO² Device Coordinate Frame" style="width:50%" />
 </p>
