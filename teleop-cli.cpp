@@ -9,6 +9,9 @@
 // Custom Jaco wrapper
 #include "jacowrapper.h"
 
+// Some util functions
+#include "utils.h"
+
 
 // Escape key code
 #define KEY_ESCAPE			27
@@ -29,7 +32,7 @@ using namespace jacowrapper;
 /**
  * A simple struct to contain the state of a haptic device
  */
-typedef struct HapticDevicePose
+struct HapticDevicePose
 {
 	cVector3d position;
 	cMatrix3d rotation;
@@ -177,7 +180,10 @@ void updateHaptics(void)
 				cursor[i]->m_material->setBlueRoyal();
 			}
 
-			// COMPUTE AND APPLY FORCES
+			// Compute forces and torques
+			cVector3d force(0, 0, 0);
+			cVector3d torque(0, 0, 0);
+			double gripperForce = 0.0;
 
 			// Desired state
 			cVector3d desiredPosition;
@@ -185,11 +191,6 @@ void updateHaptics(void)
 
 			cMatrix3d desiredRotation;
 			desiredRotation.identity();
-
-			// Variables for forces    
-			cVector3d force(0, 0, 0);
-			cVector3d torque(0, 0, 0);
-			double gripperForce = 0.0;
 
 			// Apply force field
 			if (useForceField)
@@ -228,7 +229,7 @@ void updateHaptics(void)
 				gripperForce = gripperForce - Kvg * hapticDevicePose[i].gripperAngularVelocity;
 			}
 
-			// Send computed force, torque, and gripper force to haptic device
+			// Apply forces and torques (if supported)
 			hapticDevice[i]->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
 		}
 
@@ -264,25 +265,37 @@ void updateJACO(void)
 	// Main JACO2 loop
 	while (JACOSimulationRunning)
 	{
+		// Get master pose
+		// XXX TODO ajs 07/Dec/17 Race condition here
+		HapticDevicePose masterPose = hapticDevicePose[0];
+
+		// Rotation matrix to go from the haptic master to the JACO base
+		cMatrix3d masterToJACOBase(
+			0,
+			0,
+			180,
+			cEulerOrder::C_EULER_ORDER_XYZ,
+			false,
+			true
+		);
+
+		// Transform the master pose to desired robot pose
+		// XXX ajs 7/Dec/2017 might need to invert masterToJACOBase here
+		cVector3d desiredPosition = masterToJACOBase * masterPose.position;
+		cMatrix3d desiredRotation = masterToJACOBase * masterPose.rotation;
+		cVector3d dediredEulerAnglesXYZ = rotationMatrixToEulerAngles(desiredRotation);
+
 		// Get the current robot command
 		CartesianPosition currentCommand;
 		MyGetCartesianCommand(currentCommand);
 
-		// Get master position
-		/* XXX ajs 07/Dec/17 CHAI3D examples seem to imply this
-		* copy operation is cThread safe, but the documentation doesn't
-		* mention this at all. Race condition here?
-		*/
-		cVector3d pos = hapticDevicePose[0].position;
-
-
-		// Set the commanded position
-		pointToSend.Position.CartesianPosition.X = initialCommand.Coordinates.X + pos.x();
-		pointToSend.Position.CartesianPosition.Y = initialCommand.Coordinates.Y + pos.y();
-		pointToSend.Position.CartesianPosition.Z = initialCommand.Coordinates.Z + pos.z();
-		pointToSend.Position.CartesianPosition.ThetaX = initialCommand.Coordinates.ThetaX;
-		pointToSend.Position.CartesianPosition.ThetaY = initialCommand.Coordinates.ThetaY;
-		pointToSend.Position.CartesianPosition.ThetaZ = initialCommand.Coordinates.ThetaZ;
+		// Set the commanded pose
+		pointToSend.Position.CartesianPosition.X = initialCommand.Coordinates.X + desiredPosition.x();
+		pointToSend.Position.CartesianPosition.Y = initialCommand.Coordinates.Y + desiredPosition.y();
+		pointToSend.Position.CartesianPosition.Z = initialCommand.Coordinates.Z + desiredPosition.z();
+		pointToSend.Position.CartesianPosition.ThetaX = dediredEulerAnglesXYZ.x();
+		pointToSend.Position.CartesianPosition.ThetaY = dediredEulerAnglesXYZ.y();
+		pointToSend.Position.CartesianPosition.ThetaZ = dediredEulerAnglesXYZ.z();
 
 		// Send it
 		MySendBasicTrajectory(pointToSend);
