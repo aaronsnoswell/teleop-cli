@@ -26,3 +26,11 @@ Breakdown of the Kinova naming convention;
  4. Add the CHAI3D SDK folder to your environment variables as `CHAI3DSDKROOT`. E.g.  `setx CHAI3DSDKROOT "E:\Development\SDKs\chai3d"`
  5. Open the Visual Studio `sln` file and try building!
 
+## Coordinate Frames
+
+The coordinate frames for the Force Dimension and Kinova JACO² arm we use are shown below.
+
+![Force Dimension Device Coordinate Frames](Documentation\force-dimension-device-coordinate-frames.png)
+
+![JACO² Device Coordinate Frame](Documentation\jaco2-coordinate-frame.png)
+
