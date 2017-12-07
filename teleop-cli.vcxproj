@@ -102,7 +102,7 @@
       <AdditionalOptions>/MP %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT)\API;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -148,7 +148,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT)\API;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -197,7 +197,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT)\API;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -252,7 +252,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CHAI3DSDKROOT)\src;$(CHAI3DSDKROOT)\external\Eigen;$(CHAI3DSDKROOT)\external\glew\include;$(CHAI3DSDKROOT)\extras\glfw\include;$(JACO2SDKROOT)\API;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_CONSOLE;_MSVC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>

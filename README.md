@@ -21,7 +21,7 @@ Breakdown of the Kinova naming convention;
 ## Set-up instructions
 
  1. Download and install the [Kinova SDK JACO²](http://www.kinovarobotics.com/innovation-robotics/support/?section=resources). At the time of writing, release 1.4.0 was the latest.
- 2. Add the JACO² SDK 'API' folder to your environment variables as `JACO2SDKROOT`. E.g. `setx JACO2SDKROOT "C:\Program Files (x86)\JACO2SDK\API"`
+ 2. Add the JACO² SDK folder to your environment variables as `JACO2SDKROOT`. E.g. `setx JACO2SDKROOT "C:\Program Files (x86)\JACO2SDK"`
  3. Download and extract the latest [CHAI3D release](http://www.chai3d.org/download/releases) (or clone the [CHAI3D Git repo](https://github.com/chai3d/chai3d)). At the time of writing, release 3.2 was the latest.
  4. Add the CHAI3D SDK folder to your environment variables as `CHAI3DSDKROOT`. E.g.  `setx CHAI3DSDKROOT "E:\Development\SDKs\chai3d"`
  5. Open the Visual Studio `sln` file and try building!
