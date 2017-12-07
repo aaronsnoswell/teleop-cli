@@ -1,6 +1,6 @@
 #pragma once
 
-// A simple wrapper for the (ugly) Jaco Win32 API
+// A simple wrapper for the (ugly) JACO2 API
 
 #include <Windows.h>
 #include <iostream>
@@ -10,8 +10,15 @@
 #include "CommandLayer.h"
 #include "KinovaTypes.h"
 
+
+// The names of the command layer DLLs
+#define COMMAND_LAYER_PATH				L"CommandLayerWindows.dll"
+#define COMMAND_LAYER_ETHERNET_PATH		L"CommandLayerEthernet.dll"
+
+
 namespace jacowrapper
 {
+	using namespace std;
 
 	// A handle to the API.
 	HINSTANCE commandLayer_handle;
@@ -28,10 +35,19 @@ namespace jacowrapper
 
 
 	// Loads the Jaco API symbols from the DLL
-	bool LoadSymbols()
+	bool LoadSymbols(bool UseEthernet = false)
 	{
-		// We load the API.
-		commandLayer_handle = LoadLibrary("CommandLayerWindows.dll");
+		// We load the API
+		commandLayer_handle = LoadLibraryW(
+			(UseEthernet) ? COMMAND_LAYER_ETHERNET_PATH : COMMAND_LAYER_PATH
+		);
+		
+		if (commandLayer_handle == NULL)
+		{
+			cerr << "Couldn't load JACO2 DLL - Win32 error " << GetLastError() << endl;
+			cerr << "See https://msdn.microsoft.com/en-us/library/windows/desktop/ms681381(v=vs.85).aspx" << endl;
+			return false;
+		}
 
 		// We load the functions from the library (Under Windows, use GetProcAddress)
 		MyInitAPI = (int(*)()) GetProcAddress(commandLayer_handle, "InitAPI");
@@ -49,6 +65,7 @@ namespace jacowrapper
 			(MyMoveHome == NULL) || (MyInitFingers == NULL))
 
 		{
+			cerr << "Couldn't find JACO2 SDK function symbols" << endl;
 			return false;
 		}
 

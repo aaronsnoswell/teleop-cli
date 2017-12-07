@@ -8,10 +8,17 @@
 // Custom Jaco wrapper
 #include "jacowrapper.h"
 
-#define KEY_ESCAPE	27
+
+// Escape key code
+#define KEY_ESCAPE			27
 
 // Maximum haptic devices supported by this application
-#define MAX_DEVICES	16
+#define MAX_DEVICES			16
+
+// JACO2 SDK communication mode
+#define JACOSDK_USB			false
+#define JACOSDK_ETHERNET	true
+
 
 using namespace chai3d;
 using namespace std;
@@ -273,9 +280,9 @@ int main(int argc, char* argv[])
 	cout << endl;
 
 	// Load Jaco DLLs
-	if (!LoadSymbols())
+	if (!LoadSymbols(JACOSDK_USB))
 	{
-		cerr << "Error loading JACO2 API" << endl;
+		// Error loading JACO2 SDK
 		return 0;
 	}
 
@@ -286,7 +293,7 @@ int main(int argc, char* argv[])
 
 	if (devicesCount == 0)
 	{
-		cerr << "Couldn't find any Jaco devices" << endl;
+		cerr << "Couldn't find any JACO devices" << endl;
 		return 0;
 	}
 	
