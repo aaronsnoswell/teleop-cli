@@ -72,6 +72,7 @@ namespace jacowrapper
 		return true;
 	}
 
+
 	// Unloads the Jaco 2 API symbols
 	void UnloadSymbols()
 	{
