@@ -28,7 +28,7 @@ Breakdown of the Kinova naming convention;
 
 ## Coordinate Frames
 
-The coordinate frames for the Force Dimension devices and Kinova JACO² arm we use are shown below. As can be seen, the haptic master pose needs to be rotated around the Z axis 180° to match the JACO² frame (the JACO² Cartesian Control API is relative to the base frame). This occurs in [`teleop-cli.cpp:282`](blob/db9688271dd5f004d6f7f74b7ec3466e6b8d0219/teleop-cli.cpp#L282).
+The coordinate frames for the Force Dimension devices and Kinova JACO² arm we use are shown below. As can be seen, the haptic master pose needs to be rotated around the Z axis 180° to match the JACO² frame (the JACO² Cartesian Control API is relative to the base frame). This occurs in [`teleop-cli.cpp:282`](../db9688271dd5f004d6f7f74b7ec3466e6b8d0219/teleop-cli.cpp#L282).
 
 <p align="center">
 <img src="Documentation/force-dimension-device-coordinate-frames.png" alt="Force Dimension Device Coordinate Frames" style="width:100%" />
