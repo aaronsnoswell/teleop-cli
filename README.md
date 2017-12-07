@@ -30,7 +30,7 @@ Breakdown of the Kinova naming convention;
 
 The coordinate frames for the Force Dimension and Kinova JACO² arm we use are shown below.
 
-![Force Dimension Device Coordinate Frames](Documentation\force-dimension-device-coordinate-frames.png)
+![Force Dimension Device Coordinate Frames](Documentation/force-dimension-device-coordinate-frames.png)
 
-![JACO² Device Coordinate Frame](Documentation\jaco2-coordinate-frame.png)
+![JACO² Device Coordinate Frame](Documentation/jaco2-coordinate-frame.png)
 
