@@ -14,7 +14,7 @@ using namespace chai3d;
  */
 cVector3d rotationMatrixToEulerAngles(cMatrix3d R, float singularThreshold = 1e-6)
 {
-	/* XXX ajs 7/Dec/2017 incides into values array might need
+	/* XXX ajs 7/Dec/2017 indices into values array might need
 	 * to be swapped below
 	 */
 	double values[3][3];
