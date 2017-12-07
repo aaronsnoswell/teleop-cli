@@ -251,6 +251,10 @@ void updateJACO(void)
 		MyGetCartesianCommand(currentCommand);
 
 		// Get master position
+		/* XXX ajs 07/Dec/17 CHAI3D examples seem to imply this
+		* copy operation is cThread safe, but the documentation doesn't
+		* mention this at all. Race condition here?
+		*/
 		cVector3d pos = hapticDevicePosition[0];
 
 		// Set the commanded position
@@ -399,6 +403,10 @@ int main(int argc, char* argv[])
 		}
 
 		// Get master position
+		/* XXX ajs 07/Dec/17 CHAI3D examples seem to imply this
+		 * copy operation is cThread safe, but the documentation doesn't
+	     * mention this at all. Race condition here?
+		 */
 		cVector3d pos = hapticDevicePosition[0];
 
 		// Output current pos
