@@ -20,6 +20,19 @@ namespace jacowrapper
 {
 	using namespace std;
 
+	// These magic numbers are copied from the Kinova ROS drivers
+	// See https://github.com/Kinovarobotics/kinova-ros/blob/c1fa13c22626aca41d87491bbb72a3d108fcf509/kinova_demo/nodes/kinova_demo/fingers_action_client.py#L93
+
+	// Maximum distance for one finger in meters
+	static float FINGER_MAX_DIST = 18.9f / 2.0f / 1000.0f;
+
+	// Maximum distance for one finger in percent
+	static float FINGER_MAX_PERCENT = 100.0f;
+
+	// Maximum thread turn for one finger
+	// Used for angular command presumably?
+	static float FINGER_MAX_TURN = 6800;
+
 	// A handle to the API.
 	HINSTANCE commandLayer_handle;
 

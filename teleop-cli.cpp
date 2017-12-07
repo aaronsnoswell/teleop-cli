@@ -41,7 +41,7 @@ struct HapticDevicePose
 	cVector3d force;
 	cVector3d torque;
 
-	double gripperAngle = 0;
+	double gripperAngleRad = 0;
 	double gripperAngularVelocity = 0;
 	double gripperForce = 0;
 
@@ -59,7 +59,7 @@ struct HapticDevicePose
 		d->getForce(force);
 		d->getTorque(torque);
 
-		d->getGripperAngleRad(gripperAngle);
+		d->getGripperAngleRad(gripperAngleRad);
 		d->getGripperAngularVelocity(gripperAngularVelocity);
 		d->getGripperForce(gripperForce);
 
@@ -87,6 +87,7 @@ enum ControlMode
 cWorld* world;
 cHapticDeviceHandler* handler;
 cGenericHapticDevicePtr hapticDevice[MAX_HAPTIC_DEVICES];
+cHapticDeviceInfo hapticDeviceSpecification[MAX_HAPTIC_DEVICES];
 cShapeSphere* cursor[MAX_HAPTIC_DEVICES];
 cShapeLine* velocity[MAX_HAPTIC_DEVICES];
 HapticDevicePose hapticDevicePose[MAX_HAPTIC_DEVICES];
@@ -97,6 +98,7 @@ int hapticDeviceCount = 0;
 bool useDamping = false;
 bool useForceField = true;
 ControlMode JACOControlMode = ControlMode::E_POSITION;
+bool useGripperControl = false;
 
 // Haptic thread variables
 bool hapticSimulationRunning = false;
@@ -316,10 +318,26 @@ void updateJACO(void)
 				pointToSend.Position.CartesianPosition.ThetaY = desiredAngularVelocity.y();
 				pointToSend.Position.CartesianPosition.ThetaZ = desiredAngularVelocity.z();
 
-				// TODO ajs 7/Dec/2017 Add finger control from master gripper
-				pointToSend.Position.Fingers.Finger1 = 0;
-				pointToSend.Position.Fingers.Finger2 = 0;
-				pointToSend.Position.Fingers.Finger3 = 0;
+				float fingerCommand = 0;
+				if (useGripperControl)
+				{
+					// XXX ajs 7/Dec/2017 We arbitrarily assume the gripper can't move faster than hapticDeviceSpecification[0].m_gripperMaxAngleRad/second
+					float GRIPPER_MAX_ANGULAR_VELOCITY = hapticDeviceSpecification[0].m_gripperMaxAngleRad / 1.0f;
+
+					// XXX ajs 7/Dec/2017 We arbitarily limit the velocity to FINGER_MAX_TURN/second
+					float FINGER_MAX_VELOCITY = FINGER_MAX_DIST / 1.0f;
+
+					// Convert gripper angular velocity to [-1 to 1] (0=still, 1=max velocity in closing direction)
+					float gripperClosingVelocity = masterPose.gripperAngularVelocity / GRIPPER_MAX_ANGULAR_VELOCITY;
+
+					// Compute finger velocity
+					fingerCommand = gripperClosingVelocity * FINGER_MAX_VELOCITY;
+				}
+
+				pointToSend.Position.HandMode = HAND_MODE::VELOCITY_MODE;
+				pointToSend.Position.Fingers.Finger1 = fingerCommand;
+				pointToSend.Position.Fingers.Finger2 = fingerCommand;
+				pointToSend.Position.Fingers.Finger3 = fingerCommand;
 
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
@@ -343,10 +361,20 @@ void updateJACO(void)
 				pointToSend.Position.CartesianPosition.ThetaY = dediredEulerAnglesXYZ.y();
 				pointToSend.Position.CartesianPosition.ThetaZ = dediredEulerAnglesXYZ.z();
 
-				// TODO ajs 7/Dec/2017 Add finger control from master gripper
-				pointToSend.Position.Fingers.Finger1 = 0;
-				pointToSend.Position.Fingers.Finger2 = 0;
-				pointToSend.Position.Fingers.Finger3 = 0;
+				float fingerCommand = 0;
+				if (useGripperControl)
+				{
+					// Convert gripper angle to [0 to 1] (0=open, 1=closed)
+					float gripperClosedAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
+
+					// Compute and send finger position
+					fingerCommand = gripperClosedAmount * FINGER_MAX_DIST;
+				}
+
+				pointToSend.Position.HandMode = HAND_MODE::POSITION_MODE;
+				pointToSend.Position.Fingers.Finger1 = fingerCommand;
+				pointToSend.Position.Fingers.Finger2 = fingerCommand;
+				pointToSend.Position.Fingers.Finger3 = fingerCommand;
 
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
