@@ -72,6 +72,15 @@ struct HapticDevicePose
 };
 
 
+// A simple enum for selecting the current JACO control mode
+enum ControlMode
+{
+	E_POSITION,
+	E_VELOCITY,
+	E_FORCE
+};
+
+
 #pragma region Declarations
 
 // Global variables
@@ -84,10 +93,10 @@ HapticDevicePose hapticDevicePose[MAX_HAPTIC_DEVICES];
 int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
 
-
 // Demo configuration flags
 bool useDamping = false;
 bool useForceField = true;
+ControlMode JACOControlMode = ControlMode::E_POSITION;
 
 // Haptic thread variables
 bool hapticSimulationRunning = false;
@@ -260,7 +269,6 @@ void updateJACO(void)
 	// Prepare a point for us to command it with
 	TrajectoryPoint pointToSend;
 	pointToSend.InitStruct();
-	pointToSend.Position.Type = CARTESIAN_POSITION;
 
 	// Main JACO2 loop
 	while (JACOSimulationRunning)
@@ -270,6 +278,7 @@ void updateJACO(void)
 		HapticDevicePose masterPose = hapticDevicePose[0];
 
 		// Rotation matrix to go from the haptic master to the JACO base
+		// XXX ajs 7/Dec/2017 might need to invert masterToJACOBase here
 		cMatrix3d masterToJACOBase(
 			0,
 			0,
@@ -279,26 +288,72 @@ void updateJACO(void)
 			true
 		);
 
-		// Transform the master pose to desired robot pose
-		// XXX ajs 7/Dec/2017 might need to invert masterToJACOBase here
-		cVector3d desiredPosition = masterToJACOBase * masterPose.position;
-		cMatrix3d desiredRotation = masterToJACOBase * masterPose.rotation;
-		cVector3d dediredEulerAnglesXYZ = rotationMatrixToEulerAngles(desiredRotation);
-
 		// Get the current robot command
 		CartesianPosition currentCommand;
 		MyGetCartesianCommand(currentCommand);
 
-		// Set the commanded pose
-		pointToSend.Position.CartesianPosition.X = initialCommand.Coordinates.X + desiredPosition.x();
-		pointToSend.Position.CartesianPosition.Y = initialCommand.Coordinates.Y + desiredPosition.y();
-		pointToSend.Position.CartesianPosition.Z = initialCommand.Coordinates.Z + desiredPosition.z();
-		pointToSend.Position.CartesianPosition.ThetaX = dediredEulerAnglesXYZ.x();
-		pointToSend.Position.CartesianPosition.ThetaY = dediredEulerAnglesXYZ.y();
-		pointToSend.Position.CartesianPosition.ThetaZ = dediredEulerAnglesXYZ.z();
+		switch (JACOControlMode)
+		{
+			case E_FORCE:
+			{
+				cerr << "Force control not yet implemented" << endl;
+				break;
+			}
+			case E_VELOCITY:
+			{
+				// XXX ajs 7/Dec/2017 Velocity control not yet tested
 
-		// Send it
-		MySendBasicTrajectory(pointToSend);
+				// Transform the master velocity to desired robot velocity
+				cVector3d desiredVelocity = masterToJACOBase * masterPose.linearVelocity;
+				cVector3d desiredAngularVelocity = masterToJACOBase * masterPose.angularVelocity;
+				
+				// Set the commanded pose
+				pointToSend.Position.Type = CARTESIAN_VELOCITY;
+				pointToSend.Position.CartesianPosition.X = desiredVelocity.x();
+				pointToSend.Position.CartesianPosition.Y = desiredVelocity.y();
+				pointToSend.Position.CartesianPosition.Z = desiredVelocity.z();
+				pointToSend.Position.CartesianPosition.ThetaX = desiredAngularVelocity.x();
+				pointToSend.Position.CartesianPosition.ThetaY = desiredAngularVelocity.y();
+				pointToSend.Position.CartesianPosition.ThetaZ = desiredAngularVelocity.z();
+
+				// TODO ajs 7/Dec/2017 Add finger control from master gripper
+				pointToSend.Position.Fingers.Finger1 = 0;
+				pointToSend.Position.Fingers.Finger2 = 0;
+				pointToSend.Position.Fingers.Finger3 = 0;
+
+				// Send the command
+				MySendBasicTrajectory(pointToSend);
+
+				break;
+			}
+			case E_POSITION:
+			default:
+			{
+				// Transform the master pose to desired robot pose
+				cVector3d desiredPosition = masterToJACOBase * masterPose.position;
+				cMatrix3d desiredRotation = masterToJACOBase * masterPose.rotation;
+				cVector3d dediredEulerAnglesXYZ = rotationMatrixToEulerAngles(desiredRotation);
+
+				// Set the commanded pose
+				pointToSend.Position.Type = CARTESIAN_POSITION;
+				pointToSend.Position.CartesianPosition.X = initialCommand.Coordinates.X + desiredPosition.x();
+				pointToSend.Position.CartesianPosition.Y = initialCommand.Coordinates.Y + desiredPosition.y();
+				pointToSend.Position.CartesianPosition.Z = initialCommand.Coordinates.Z + desiredPosition.z();
+				pointToSend.Position.CartesianPosition.ThetaX = dediredEulerAnglesXYZ.x();
+				pointToSend.Position.CartesianPosition.ThetaY = dediredEulerAnglesXYZ.y();
+				pointToSend.Position.CartesianPosition.ThetaZ = dediredEulerAnglesXYZ.z();
+
+				// TODO ajs 7/Dec/2017 Add finger control from master gripper
+				pointToSend.Position.Fingers.Finger1 = 0;
+				pointToSend.Position.Fingers.Finger2 = 0;
+				pointToSend.Position.Fingers.Finger3 = 0;
+
+				// Send the command
+				MySendBasicTrajectory(pointToSend);
+
+				break;
+			}
+		}
 
 		// Update frequency counter
 		freqCounterJACO.signal(1);
