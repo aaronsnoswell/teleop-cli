@@ -93,17 +93,17 @@ int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
 
 // Demo configuration flags
-bool useDamping = true;
+bool useDamping = false;
 bool useForceField = true;
 bool useGripperControl = true;
 
-ControlMode JACOControlMode = ControlMode::E_POSITION;
+ControlMode JACOControlMode = ControlMode::E_VELOCITY;
 
 double masterWorkspaceScaling = 2.0f;
 double masterWorkspaceAngularScaling = 1.0f;
 float PositionControlLoopHz = 5;
 
-double masterVelocityScaling = 2.0f;
+double masterVelocityScaling = 3.0f;
 double masterAngularRateScaling = 1.0f;
 float VelocityControlLoopHz = 200;
 
@@ -244,7 +244,6 @@ void updateJACO(void)
 	// JACO initialisation
 	MySetCartesianControl();
 	MySendBasicTrajectory(zeroPose);
-	Sleep(3000);
 
 	cout << endl << "JACO initialization done" << endl;
 
@@ -285,6 +284,13 @@ void updateJACO(void)
 			}
 			case E_VELOCITY:
 			{
+				if (masterPose.position.length() < 1e-2)
+				{
+					// If position is ~at origin (< 1cm away), zero the arm
+					// This prevents drift over time from the velocity control mode
+					MySendBasicTrajectory(zeroPose);
+				}
+
 				// Apply workspace scaling
 				cVector3d desiredVelocityMetersPerSecondMaster = masterPose.linearVelocity * masterVelocityScaling;
 
@@ -341,7 +347,7 @@ void updateJACO(void)
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
 
-				// Velocity control loop runs at 200Hz
+				// Rate-limit the control loop
 				Sleep((DWORD)(1.0f / (VelocityControlLoopHz * 1e-3)));
 
 				break;
