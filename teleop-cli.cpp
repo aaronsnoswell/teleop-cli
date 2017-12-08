@@ -14,14 +14,17 @@
 
 
 // Escape key code
-#define KEY_ESCAPE			27
+#define KEY_ESCAPE					27
 
 // Maximum haptic devices supported by this application
-#define MAX_HAPTIC_DEVICES	16
+#define MAX_HAPTIC_DEVICES			16
+
+// Radius of the Omega.7 gripper rotational axis (empirically measured)
+#define OMEGA_7_GRIPPER_RADIUS_MM	54
 
 // JACO2 SDK communication mode
-#define JACOSDK_USB			false
-#define JACOSDK_ETHERNET	true
+#define JACOSDK_USB					false
+#define JACOSDK_ETHERNET			true
 
 
 using namespace chai3d;
@@ -326,23 +329,14 @@ void updateJACO(void)
 				pointToSend.Position.CartesianPosition.ThetaZ = desiredEulerRatesXYZRad.z();
 
 				float fingerCommand = 0;
-				/* XXX ajs 08/Dec/2017 Velocity control of fingers doesn't seem to work?
 				if (useGripperControl)
 				{
+					// Convert gripper angular opening velocity to linear velocity in m/s
+					float gripperOpenVelocityMetersPerSecond = masterPose.gripperAngularVelocity * OMEGA_7_GRIPPER_RADIUS_MM * 1e3;
 
-					// XXX ajs 7/Dec/2017 We arbitrarily scale the master gripper rate by hapticDeviceSpecification[0].m_gripperMaxAngleRad/second
-					float GRIPPER_MAX_ANGULAR_VELOCITY = hapticDeviceSpecification[0].m_gripperMaxAngleRad / 1.0f;
-
-					// XXX ajs 7/Dec/2017 We arbitarily scale the JACO velocity to FINGER_MAX_TURN/second
-					float FINGER_MAX_VELOCITY = FINGER_MAX_DIST / 1.0f;
-
-					// Convert gripper angular velocity to [-1 to 1] (0=still, 1=max velocity in opening direction)
-					float gripperOpenVelocity = masterPose.gripperAngularVelocity / GRIPPER_MAX_ANGULAR_VELOCITY * 100;
-
-					// Compute finger velocity
-					fingerCommand = -1.0f * gripperOpenVelocity * FINGER_MAX_VELOCITY;
+					// Compute finger velocity (JACO uses a closing velocity, not an opening velocity)
+					fingerCommand = -1.0f * gripperOpenVelocityMetersPerSecond;
 				}
-				*/
 
 				pointToSend.Position.HandMode = HAND_MODE::VELOCITY_MODE;
 				pointToSend.Position.Fingers.Finger1 = fingerCommand;
@@ -402,7 +396,7 @@ void updateJACO(void)
 				pointToSend.Position.CartesianPosition.ThetaY = desiredEulerAnglesXYZRad.y();
 				pointToSend.Position.CartesianPosition.ThetaZ = desiredEulerAnglesXYZRad.z();
 
-				float fingerCommand = zeroPose.Position.Fingers.Finger1;
+				float fingerCommand = 0;
 				if (useGripperControl)
 				{
 					// Convert gripper angle to [0 to 1] (0=closed, 1=open)
@@ -555,7 +549,7 @@ int main(int argc, char* argv[])
         hapticDeviceSpecification[i] = hapticDevice[i]->getSpecifications();
 
         // If the device has a gripper, enable the gripper to simulate a user switch
-        hapticDevice[i]->setEnableGripperUserSwitch(true);
+        hapticDevice[i]->setEnableGripperUserSwitch(false);
     }
 
 	// Setup callback when application exits
