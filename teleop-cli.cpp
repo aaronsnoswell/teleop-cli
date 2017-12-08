@@ -93,11 +93,14 @@ int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
 
 // Demo configuration flags
-bool useDamping = false;
+bool useDamping = true;
 bool useForceField = true;
+bool useGripperControl = true;
+double masterWorkspaceScaling = 3.0f;
 ControlMode JACOControlMode = ControlMode::E_POSITION;
-bool useGripperControl = false;
-double masterWorkspaceScaling = 1.0f;
+float PositionControlLoopHz = 5;
+float VelocityControlLoopHz = 200;
+float ForceControlLoopHz = 200;
 
 // Haptic thread variables
 bool hapticSimulationRunning = false;
@@ -264,6 +267,10 @@ void updateJACO(void)
 			case E_FORCE:
 			{
 				cerr << "Force control not yet implemented" << endl;
+
+				// Rate limit the control loop
+				Sleep((DWORD)(1.0f / (VelocityControlLoopHz * 1e-3)));
+
 				break;
 			}
 			case E_VELOCITY:
@@ -311,7 +318,7 @@ void updateJACO(void)
 				MySendBasicTrajectory(pointToSend);
 
 				// Velocity control loop runs at 200Hz
-				Sleep(5);
+				Sleep((DWORD)(1.0f / (VelocityControlLoopHz * 1e-3)));
 
 				break;
 				*/
@@ -349,18 +356,18 @@ void updateJACO(void)
 				pointToSend.Position.CartesianPosition.ThetaZ = zeroPose.Position.CartesianPosition.ThetaZ + desiredEulerAnglesXYZRad.z();
 
 				float fingerCommand = zeroPose.Position.Fingers.Finger1;
-				/*
+				float gripperOpenAmount = 0.5f;
 				if (useGripperControl)
 				{
-					// Convert gripper angle to [0 to 1] (0=open, 1=closed)
-					float gripperClosedAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
+					// Convert gripper angle to [0 to 1] (0=closed, 1=open)
+					gripperOpenAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
 
 					// Compute and send finger position
-					fingerCommand = gripperClosedAmount * FINGER_MAX_DIST;
+					// JACO positions are finger-closed = high commands
+					fingerCommand = (1.0f - gripperOpenAmount) * FINGER_MAX_TURN;
 				}
-				*/
 
-				pointToSend.Position.HandMode = HAND_MODE::POSITION_MODE;
+				pointToSend.Position.HandMode = HAND_MODE::THREE_FINGERS;
 				pointToSend.Position.Fingers.Finger1 = fingerCommand;
 				pointToSend.Position.Fingers.Finger2 = fingerCommand;
 				pointToSend.Position.Fingers.Finger3 = fingerCommand;
@@ -368,8 +375,8 @@ void updateJACO(void)
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
 
-				// Position control loop runs at 5Hz
-				Sleep(200);
+				// Rate-limit the control loop
+				Sleep((DWORD)(1.0f / (PositionControlLoopHz * 1e-3)));
 
 				break;
 			}
@@ -440,7 +447,7 @@ int main(int argc, char* argv[])
         handler->getDevice(hapticDevice[i], i);
         hapticDevice[i]->open();
         hapticDevice[i]->calibrate();
-        cHapticDeviceInfo info = hapticDevice[i]->getSpecifications();
+        hapticDeviceSpecification[i] = hapticDevice[i]->getSpecifications();
 
         // If the device has a gripper, enable the gripper to simulate a user switch
         hapticDevice[i]->setEnableGripperUserSwitch(true);
