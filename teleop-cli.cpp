@@ -97,6 +97,7 @@ bool useDamping = false;
 bool useForceField = true;
 ControlMode JACOControlMode = ControlMode::E_POSITION;
 bool useGripperControl = false;
+double masterWorkspaceScaling = 1.0f;
 
 // Haptic thread variables
 bool hapticSimulationRunning = false;
@@ -173,12 +174,12 @@ void updateHaptics(void)
 			if (useForceField)
 			{
 				// Compute linear force
-				double Kp = 25; // [N/m]
+				double Kp = 100; // [N/m]
 				cVector3d forceField = Kp * (desiredPosition - hapticDevicePose[i].position);
 				force.add(forceField);
 
 				// Compute angular torque
-				double Kr = 0.05; // [N/m.rad]
+				double Kr = 0.2; // [N/m.rad]
 				cVector3d axis;
 				double angle;
 				cMatrix3d deltaRotation = cTranspose(hapticDevicePose[i].rotation) * desiredRotation;
@@ -229,41 +230,35 @@ void updateJACO(void)
 	cout << "Initializing JACO arm" << endl;
 
 	// JACO initialisation
-	MyMoveHome();
-	MyInitFingers();
+	MySetCartesianControl();
+	MySendBasicTrajectory(zeroPose);
 
 	cout << endl << "JACO initialization done" << endl;
-
-	// Get initial robot pose
-	CartesianPosition initialCommand;
-	MyGetCartesianCommand(initialCommand);
-
-	// Prepare a point for us to command it with
-	TrajectoryPoint pointToSend;
-	pointToSend.InitStruct();
 
 	// Main JACO2 loop
 	while (JACOSimulationRunning)
 	{
+		// Update frequency counter
+		freqCounterJACO.signal(1);
+
 		// Get master pose
 		// XXX TODO ajs 07/Dec/17 Race condition here
 		HapticDevicePose masterPose = hapticDevicePose[0];
 
 		// Rotation matrix to go from the haptic master to the JACO base
-		// XXX ajs 7/Dec/2017 might need to invert masterToJACOBase here
+		/* XXX ajs 08/Dec/2017 This rotation works for a right-hand haptic master,
+		 * but might need to be inverted (-90 degrees) for a left-handed one?
+		 */
 		cMatrix3d masterToJACOBase(
 			0,
 			0,
-			180,
+			90,
 			cEulerOrder::C_EULER_ORDER_XYZ,
 			false,
 			true
 		);
 
 		// Get the current robot command
-		CartesianPosition currentCommand;
-		MyGetCartesianCommand(currentCommand);
-
 		switch (JACOControlMode)
 		{
 			case E_FORCE:
@@ -274,7 +269,10 @@ void updateJACO(void)
 			case E_VELOCITY:
 			{
 				// XXX ajs 7/Dec/2017 Velocity control not yet tested
+				cerr << "Velocity control not yet tested" << endl;
+				break;
 
+				/*
 				// Transform the master velocity to desired robot velocity
 				cVector3d desiredVelocity = masterToJACOBase * masterPose.linearVelocity;
 				cVector3d desiredAngularVelocity = masterToJACOBase * masterPose.angularVelocity;
@@ -312,26 +310,46 @@ void updateJACO(void)
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
 
+				// Velocity control loop runs at 200Hz
+				Sleep(5);
+
 				break;
+				*/
 			}
 			case E_POSITION:
 			default:
 			{
-				// Transform the master pose to desired robot pose
-				cVector3d desiredPosition = masterToJACOBase * masterPose.position;
-				cMatrix3d desiredRotation = masterToJACOBase * masterPose.rotation;
-				cVector3d dediredEulerAnglesXYZ = rotationMatrixToEulerAngles(desiredRotation);
+				// Apply workspace scaling
+				cVector3d desiredPositionMetersMaster = masterPose.position * masterWorkspaceScaling;
+				
+				// Transform to robot base frame
+				cVector3d desiredPositionMeters = masterToJACOBase * desiredPositionMetersMaster;
+
+				// Get desired Euler angles in master frame
+				cVector3d desiredEulerAnglesXYZRadMaster = rotationMatrixToEulerAngles(masterPose.rotation);
+
+				// Transform to robot end effector frame
+				cVector3d desiredEulerAnglesXYZRad(
+					desiredEulerAnglesXYZRadMaster.y() * -1,
+					desiredEulerAnglesXYZRadMaster.z() * +1,
+					desiredEulerAnglesXYZRadMaster.x() * -1
+				);
 
 				// Set the commanded pose
+				TrajectoryPoint pointToSend;
+				pointToSend.InitStruct();
 				pointToSend.Position.Type = CARTESIAN_POSITION;
-				pointToSend.Position.CartesianPosition.X = initialCommand.Coordinates.X + desiredPosition.x();
-				pointToSend.Position.CartesianPosition.Y = initialCommand.Coordinates.Y + desiredPosition.y();
-				pointToSend.Position.CartesianPosition.Z = initialCommand.Coordinates.Z + desiredPosition.z();
-				pointToSend.Position.CartesianPosition.ThetaX = dediredEulerAnglesXYZ.x();
-				pointToSend.Position.CartesianPosition.ThetaY = dediredEulerAnglesXYZ.y();
-				pointToSend.Position.CartesianPosition.ThetaZ = dediredEulerAnglesXYZ.z();
+				pointToSend.Position.CartesianPosition.X = zeroPose.Position.CartesianPosition.X + desiredPositionMeters.x();
+				pointToSend.Position.CartesianPosition.Y = zeroPose.Position.CartesianPosition.Y + desiredPositionMeters.y();
+				pointToSend.Position.CartesianPosition.Z = zeroPose.Position.CartesianPosition.Z + desiredPositionMeters.z();
 
-				float fingerCommand = 0;
+				// JACO Euler Angles are in the end-effector local frame, XYZ order
+				pointToSend.Position.CartesianPosition.ThetaX = zeroPose.Position.CartesianPosition.ThetaX + desiredEulerAnglesXYZRad.x();
+				pointToSend.Position.CartesianPosition.ThetaY = zeroPose.Position.CartesianPosition.ThetaY + desiredEulerAnglesXYZRad.y();
+				pointToSend.Position.CartesianPosition.ThetaZ = zeroPose.Position.CartesianPosition.ThetaZ + desiredEulerAnglesXYZRad.z();
+
+				float fingerCommand = zeroPose.Position.Fingers.Finger1;
+				/*
 				if (useGripperControl)
 				{
 					// Convert gripper angle to [0 to 1] (0=open, 1=closed)
@@ -340,6 +358,7 @@ void updateJACO(void)
 					// Compute and send finger position
 					fingerCommand = gripperClosedAmount * FINGER_MAX_DIST;
 				}
+				*/
 
 				pointToSend.Position.HandMode = HAND_MODE::POSITION_MODE;
 				pointToSend.Position.Fingers.Finger1 = fingerCommand;
@@ -349,16 +368,16 @@ void updateJACO(void)
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
 
+				// Position control loop runs at 5Hz
+				Sleep(200);
+
 				break;
 			}
 		}
-
-		// Update frequency counter
-		freqCounterJACO.signal(1);
-
-		// Run Jaco inner loop at 200Hz
-		Sleep(5);
 	}
+
+	//cout << endl << "Go home, JACO..." << endl;
+	//MyMoveHome();
 
 	JACOSimulationFinished = true;
 }

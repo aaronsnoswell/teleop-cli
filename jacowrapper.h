@@ -16,7 +16,7 @@
 #define COMMAND_LAYER_ETHERNET_PATH		L"CommandLayerEthernet.dll"
 
 // 1 rad is this many degrees
-#define RAD2DEG	57.29578f;
+#define RAD2DEG	57.29578f
 
 
 namespace jacowrapper
@@ -52,10 +52,10 @@ namespace jacowrapper
 	int(*MySendBasicTrajectory)(TrajectoryPoint command);
 
 
-	// Define a TrajectoryPoint that we use as our zero pose
-	// Designated Initializers didn't make it into C++11 ;(
+	// Define a reachable TrajectoryPoint that we use as our zero pose
 	struct ZeroPoseTrajectoryPoint : TrajectoryPoint
 	{
+		// Designated Initializers didn't make it into C++11 ;(
 		ZeroPoseTrajectoryPoint()
 		{
 			InitStruct();
@@ -71,6 +71,7 @@ namespace jacowrapper
 			Position.Fingers.Finger2 = FINGER_MAX_TURN / 2.0f;
 			Position.Fingers.Finger3 = FINGER_MAX_TURN / 2.0f;
 		}
+
 	} zeroPose;
 	
 
