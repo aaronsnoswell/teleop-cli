@@ -77,6 +77,7 @@ enum ControlMode
 {
 	E_POSITION,
 	E_VELOCITY,
+	E_RATE,
 	E_FORCE
 };
 
@@ -97,7 +98,7 @@ bool useDamping = false;
 bool useForceField = true;
 bool useGripperControl = true;
 
-ControlMode JACOControlMode = ControlMode::E_VELOCITY;
+ControlMode JACOControlMode = ControlMode::E_RATE;
 
 double masterWorkspaceScaling = 2.0f;
 double masterWorkspaceAngularScaling = 1.0f;
@@ -106,6 +107,10 @@ float PositionControlLoopHz = 5;
 double masterVelocityScaling = 3.0f;
 double masterAngularRateScaling = 1.0f;
 float VelocityControlLoopHz = 200;
+
+double masterRateWorkspaceScaling = 10.0f;
+double masterRateWorkspaceAngularRateScaling = 1.0f;
+float RateControlLoopHz = 200;
 
 double masterForceScaling = 1.0f;
 double masterTorqueScaling = 1.0f;
@@ -349,6 +354,78 @@ void updateJACO(void)
 
 				// Rate-limit the control loop
 				Sleep((DWORD)(1.0f / (VelocityControlLoopHz * 1e-3)));
+
+				break;
+			}
+			case E_RATE:
+			{
+				// Rate control uses the position of the haptic master to drive the velocity of the arm
+
+				// Apply workspace scaling
+				cVector3d desiredPositionMetersMaster = masterPose.position * masterRateWorkspaceScaling;
+
+				// Transform to robot base frame
+				cVector3d desiredPositionMeters = masterToJACOBase * desiredPositionMetersMaster;
+
+				// Get desired Euler angles in master frame
+				cVector3d desiredEulerAnglesXYZRadMaster = rotationMatrixToEulerAngles(masterPose.rotation) * masterRateWorkspaceAngularRateScaling;
+
+				// Transform to robot end effector frame
+				cVector3d desiredEulerAnglesXYZRad(
+					desiredEulerAnglesXYZRadMaster.y() * -1,
+					desiredEulerAnglesXYZRadMaster.z() * +1,
+					desiredEulerAnglesXYZRadMaster.x() * -1
+				);
+
+				// Apply square scaling to rates to create a dead zone
+				desiredPositionMeters = cVector3d(
+					desiredPositionMeters.x() * fabs(desiredPositionMeters.x()),
+					desiredPositionMeters.y() * fabs(desiredPositionMeters.y()),
+					desiredPositionMeters.z() * fabs(desiredPositionMeters.z())
+				);
+				desiredEulerAnglesXYZRad = cVector3d(
+					desiredEulerAnglesXYZRad.x() * fabs(desiredEulerAnglesXYZRad.x()),
+					desiredEulerAnglesXYZRad.y() * fabs(desiredEulerAnglesXYZRad.y()),
+					desiredEulerAnglesXYZRad.z() * fabs(desiredEulerAnglesXYZRad.z())
+				);
+
+				// Set the commanded pose
+				TrajectoryPoint pointToSend;
+				pointToSend.InitStruct();
+				pointToSend.Position.Type = CARTESIAN_VELOCITY;
+				pointToSend.Position.CartesianPosition.X = desiredPositionMeters.x();
+				pointToSend.Position.CartesianPosition.Y = desiredPositionMeters.y();
+				pointToSend.Position.CartesianPosition.Z = desiredPositionMeters.z();
+
+				// JACO Euler Angles are in the end-effector local frame, XYZ order
+				pointToSend.Position.CartesianPosition.ThetaX = desiredEulerAnglesXYZRad.x();
+				pointToSend.Position.CartesianPosition.ThetaY = desiredEulerAnglesXYZRad.y();
+				pointToSend.Position.CartesianPosition.ThetaZ = desiredEulerAnglesXYZRad.z();
+
+				float fingerCommand = zeroPose.Position.Fingers.Finger1;
+				if (useGripperControl)
+				{
+					// Convert gripper angle to [0 to 1] (0=closed, 1=open)
+					float gripperOpenAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
+
+					// Apply square scaling to gripperOpenAmount to create a dead zone
+					gripperOpenAmount *= fabs(gripperOpenAmount);
+
+					// Compute and send finger position
+					// JACO positions are finger-closed = high commands
+					fingerCommand = (gripperOpenAmount * -2.0f + 1.0f) * FINGER_MAX_TURN;
+				}
+
+				pointToSend.Position.HandMode = HAND_MODE::VELOCITY_MODE;
+				pointToSend.Position.Fingers.Finger1 = fingerCommand;
+				pointToSend.Position.Fingers.Finger2 = fingerCommand;
+				pointToSend.Position.Fingers.Finger3 = fingerCommand;
+
+				// Send the command
+				MySendBasicTrajectory(pointToSend);
+
+				// Rate-limit the control loop
+				Sleep((DWORD)(1.0f / (RateControlLoopHz * 1e-3)));
 
 				break;
 			}
