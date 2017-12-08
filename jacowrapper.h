@@ -15,6 +15,9 @@
 #define COMMAND_LAYER_PATH				L"CommandLayerWindows.dll"
 #define COMMAND_LAYER_ETHERNET_PATH		L"CommandLayerEthernet.dll"
 
+// 1 rad is this many degrees
+#define RAD2DEG	57.29578f;
+
 
 namespace jacowrapper
 {
@@ -46,6 +49,28 @@ namespace jacowrapper
 	int(*MyInitFingers)();
 	int(*MyGetCartesianCommand)(CartesianPosition &);
 
+
+	// Define a TrajectoryPoint that we use as our zero pose
+	// Designated Initializers didn't make it into C++11 ;(
+	struct ZeroPoseTrajectoryPoint : TrajectoryPoint
+	{
+		ZeroPoseTrajectoryPoint()
+		{
+			InitStruct();
+			Position.HandMode = HAND_MODE::POSITION_MODE;
+			Position.Type = CARTESIAN_POSITION;
+			Position.CartesianPosition.X = 0.1f;
+			Position.CartesianPosition.Y = -0.55f;
+			Position.CartesianPosition.Z = 0.5f;
+			Position.CartesianPosition.ThetaX = 90.0f / RAD2DEG;
+			Position.CartesianPosition.ThetaY = 0;
+			Position.CartesianPosition.ThetaZ = 0;
+			Position.Fingers.Finger1 = FINGER_MAX_TURN / 2.0f;
+			Position.Fingers.Finger2 = FINGER_MAX_TURN / 2.0f;
+			Position.Fingers.Finger3 = FINGER_MAX_TURN / 2.0f;
+		}
+	} zeroPose;
+	
 
 	// Loads the Jaco API symbols from the DLL
 	bool LoadSymbols(bool UseEthernet = false)
