@@ -42,12 +42,14 @@ namespace jacowrapper
 	// Function pointers to the functions we need
 	int(*MyInitAPI)();
 	int(*MyCloseAPI)();
-	int(*MySendBasicTrajectory)(TrajectoryPoint command);
 	int(*MyGetDevices)(KinovaDevice devices[MAX_KINOVA_DEVICE], int &result);
 	int(*MySetActiveDevice)(KinovaDevice device);
 	int(*MyMoveHome)();
 	int(*MyInitFingers)();
+	int(*MySetCartesianControl)();
+	int(*MyGetCartesianPosition)(CartesianPosition &);
 	int(*MyGetCartesianCommand)(CartesianPosition &);
+	int(*MySendBasicTrajectory)(TrajectoryPoint command);
 
 
 	// Define a TrajectoryPoint that we use as our zero pose
@@ -90,17 +92,28 @@ namespace jacowrapper
 		// We load the functions from the library (Under Windows, use GetProcAddress)
 		MyInitAPI = (int(*)()) GetProcAddress(commandLayer_handle, "InitAPI");
 		MyCloseAPI = (int(*)()) GetProcAddress(commandLayer_handle, "CloseAPI");
-		MyMoveHome = (int(*)()) GetProcAddress(commandLayer_handle, "MoveHome");
-		MyInitFingers = (int(*)()) GetProcAddress(commandLayer_handle, "InitFingers");
 		MyGetDevices = (int(*)(KinovaDevice devices[MAX_KINOVA_DEVICE], int &result)) GetProcAddress(commandLayer_handle, "GetDevices");
 		MySetActiveDevice = (int(*)(KinovaDevice devices)) GetProcAddress(commandLayer_handle, "SetActiveDevice");
-		MySendBasicTrajectory = (int(*)(TrajectoryPoint)) GetProcAddress(commandLayer_handle, "SendBasicTrajectory");
+		MyMoveHome = (int(*)()) GetProcAddress(commandLayer_handle, "MoveHome");
+		MyInitFingers = (int(*)()) GetProcAddress(commandLayer_handle, "InitFingers");
+		MySetCartesianControl = (int(*)()) GetProcAddress(commandLayer_handle, "SetCartesianControl");
+		MyGetCartesianPosition = (int(*)(CartesianPosition &)) GetProcAddress(commandLayer_handle, "GetCartesianPosition");
 		MyGetCartesianCommand = (int(*)(CartesianPosition &)) GetProcAddress(commandLayer_handle, "GetCartesianCommand");
+		MySendBasicTrajectory = (int(*)(TrajectoryPoint)) GetProcAddress(commandLayer_handle, "SendBasicTrajectory");
 
 		// Verify that all functions has been loaded correctly
-		if ((MyInitAPI == NULL) || (MyCloseAPI == NULL) || (MySendBasicTrajectory == NULL) ||
-			(MyGetDevices == NULL) || (MySetActiveDevice == NULL) || (MyGetCartesianCommand == NULL) ||
-			(MyMoveHome == NULL) || (MyInitFingers == NULL))
+		if (
+			(MyInitAPI == NULL) ||
+			(MyCloseAPI == NULL) ||
+			(MyGetDevices == NULL) ||
+			(MySetActiveDevice == NULL) ||
+			(MyMoveHome == NULL) ||
+			(MyInitFingers == NULL) ||
+			(MySetCartesianControl == NULL) ||
+			(MyGetCartesianPosition == NULL) ||
+			(MyGetCartesianCommand == NULL) ||
+			(MySendBasicTrajectory == NULL)
+			)
 
 		{
 			cerr << "Couldn't find JACO2 SDK function symbols" << endl;
