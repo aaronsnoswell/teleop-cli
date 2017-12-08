@@ -96,10 +96,19 @@ int hapticDeviceCount = 0;
 bool useDamping = true;
 bool useForceField = true;
 bool useGripperControl = true;
-double masterWorkspaceScaling = 3.0f;
+
 ControlMode JACOControlMode = ControlMode::E_POSITION;
+
+double masterWorkspaceScaling = 2.0f;
+double masterWorkspaceAngularScaling = 1.0f;
 float PositionControlLoopHz = 5;
+
+double masterVelocityScaling = 2.0f;
+double masterAngularRateScaling = 1.0f;
 float VelocityControlLoopHz = 200;
+
+double masterForceScaling = 1.0f;
+double masterTorqueScaling = 1.0f;
 float ForceControlLoopHz = 200;
 
 // Haptic thread variables
@@ -235,6 +244,7 @@ void updateJACO(void)
 	// JACO initialisation
 	MySetCartesianControl();
 	MySendBasicTrajectory(zeroPose);
+	Sleep(3000);
 
 	cout << endl << "JACO initialization done" << endl;
 
@@ -275,39 +285,53 @@ void updateJACO(void)
 			}
 			case E_VELOCITY:
 			{
-				// XXX ajs 7/Dec/2017 Velocity control not yet tested
-				cerr << "Velocity control not yet tested" << endl;
-				break;
+				// Apply workspace scaling
+				cVector3d desiredVelocityMetersPerSecondMaster = masterPose.linearVelocity * masterVelocityScaling;
 
-				/*
-				// Transform the master velocity to desired robot velocity
-				cVector3d desiredVelocity = masterToJACOBase * masterPose.linearVelocity;
-				cVector3d desiredAngularVelocity = masterToJACOBase * masterPose.angularVelocity;
-				
+				// Transform to robot base frame
+				cVector3d desiredVelocityMetersPerSecond = masterToJACOBase * desiredVelocityMetersPerSecondMaster;
+
+				// Get desired Euler rates in master frame
+				cVector3d desiredEulerRatesXYZRadMaster = masterPose.angularVelocity * masterAngularRateScaling;
+
+				// Transform to robot end effector frame
+				cVector3d desiredEulerRatesXYZRad(
+					desiredEulerRatesXYZRadMaster.y() * -1,
+					desiredEulerRatesXYZRadMaster.z() * +1,
+					desiredEulerRatesXYZRadMaster.x() * -1
+				);
+
 				// Set the commanded pose
+				TrajectoryPoint pointToSend;
+				pointToSend.InitStruct();
 				pointToSend.Position.Type = CARTESIAN_VELOCITY;
-				pointToSend.Position.CartesianPosition.X = desiredVelocity.x();
-				pointToSend.Position.CartesianPosition.Y = desiredVelocity.y();
-				pointToSend.Position.CartesianPosition.Z = desiredVelocity.z();
-				pointToSend.Position.CartesianPosition.ThetaX = desiredAngularVelocity.x();
-				pointToSend.Position.CartesianPosition.ThetaY = desiredAngularVelocity.y();
-				pointToSend.Position.CartesianPosition.ThetaZ = desiredAngularVelocity.z();
+				pointToSend.Position.CartesianPosition.X = desiredVelocityMetersPerSecond.x();
+				pointToSend.Position.CartesianPosition.Y = desiredVelocityMetersPerSecond.y();
+				pointToSend.Position.CartesianPosition.Z = desiredVelocityMetersPerSecond.z();
+
+				// JACO Euler Angles are in the end-effector local frame, XYZ order
+				pointToSend.Position.CartesianPosition.ThetaX = desiredEulerRatesXYZRad.x();
+				pointToSend.Position.CartesianPosition.ThetaY = desiredEulerRatesXYZRad.y();
+				pointToSend.Position.CartesianPosition.ThetaZ = desiredEulerRatesXYZRad.z();
 
 				float fingerCommand = 0;
+				/* XXX ajs 08/Dec/2017 Velocity control of fingers doesn't seem to work?
 				if (useGripperControl)
 				{
-					// XXX ajs 7/Dec/2017 We arbitrarily assume the gripper can't move faster than hapticDeviceSpecification[0].m_gripperMaxAngleRad/second
+
+					// XXX ajs 7/Dec/2017 We arbitrarily scale the master gripper rate by hapticDeviceSpecification[0].m_gripperMaxAngleRad/second
 					float GRIPPER_MAX_ANGULAR_VELOCITY = hapticDeviceSpecification[0].m_gripperMaxAngleRad / 1.0f;
 
-					// XXX ajs 7/Dec/2017 We arbitarily limit the velocity to FINGER_MAX_TURN/second
+					// XXX ajs 7/Dec/2017 We arbitarily scale the JACO velocity to FINGER_MAX_TURN/second
 					float FINGER_MAX_VELOCITY = FINGER_MAX_DIST / 1.0f;
 
-					// Convert gripper angular velocity to [-1 to 1] (0=still, 1=max velocity in closing direction)
-					float gripperClosingVelocity = masterPose.gripperAngularVelocity / GRIPPER_MAX_ANGULAR_VELOCITY;
+					// Convert gripper angular velocity to [-1 to 1] (0=still, 1=max velocity in opening direction)
+					float gripperOpenVelocity = masterPose.gripperAngularVelocity / GRIPPER_MAX_ANGULAR_VELOCITY * 100;
 
 					// Compute finger velocity
-					fingerCommand = gripperClosingVelocity * FINGER_MAX_VELOCITY;
+					fingerCommand = -1.0f * gripperOpenVelocity * FINGER_MAX_VELOCITY;
 				}
+				*/
 
 				pointToSend.Position.HandMode = HAND_MODE::VELOCITY_MODE;
 				pointToSend.Position.Fingers.Finger1 = fingerCommand;
@@ -321,7 +345,6 @@ void updateJACO(void)
 				Sleep((DWORD)(1.0f / (VelocityControlLoopHz * 1e-3)));
 
 				break;
-				*/
 			}
 			case E_POSITION:
 			default:
@@ -333,7 +356,7 @@ void updateJACO(void)
 				cVector3d desiredPositionMeters = masterToJACOBase * desiredPositionMetersMaster;
 
 				// Get desired Euler angles in master frame
-				cVector3d desiredEulerAnglesXYZRadMaster = rotationMatrixToEulerAngles(masterPose.rotation);
+				cVector3d desiredEulerAnglesXYZRadMaster = rotationMatrixToEulerAngles(masterPose.rotation) * masterWorkspaceAngularScaling;
 
 				// Transform to robot end effector frame
 				cVector3d desiredEulerAnglesXYZRad(
@@ -356,18 +379,17 @@ void updateJACO(void)
 				pointToSend.Position.CartesianPosition.ThetaZ = zeroPose.Position.CartesianPosition.ThetaZ + desiredEulerAnglesXYZRad.z();
 
 				float fingerCommand = zeroPose.Position.Fingers.Finger1;
-				float gripperOpenAmount = 0.5f;
 				if (useGripperControl)
 				{
 					// Convert gripper angle to [0 to 1] (0=closed, 1=open)
-					gripperOpenAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
+					float gripperOpenAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
 
 					// Compute and send finger position
 					// JACO positions are finger-closed = high commands
 					fingerCommand = (1.0f - gripperOpenAmount) * FINGER_MAX_TURN;
 				}
 
-				pointToSend.Position.HandMode = HAND_MODE::THREE_FINGERS;
+				pointToSend.Position.HandMode = HAND_MODE::POSITION_MODE;
 				pointToSend.Position.Fingers.Finger1 = fingerCommand;
 				pointToSend.Position.Fingers.Finger2 = fingerCommand;
 				pointToSend.Position.Fingers.Finger3 = fingerCommand;
