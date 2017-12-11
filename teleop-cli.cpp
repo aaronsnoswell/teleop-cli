@@ -230,8 +230,31 @@ void updateHaptics(void)
 				gripperForce = gripperForce - Kvg * hapticDevicePose[i].gripperAngularVelocity;
 			}
 
+			/* ================================================================
+			 * DANGER ZONE - THINK VERY CAREFULLY BEFORE MODIFYING THE
+			 * BELOW LINES - THESE ARE A SAFETY CHECK SO YOU DON'T DAMAGE
+			 * YOUR HARDWARE
+			 */
+
+			// Limit gripper force
+			float sign = (gripperForce < 0) ? -1 : 1;
+			gripperForce = sign * fmin(
+				fabs(gripperForce),
+				fabs(hapticDeviceSpecification[i].m_maxGripperForce)
+			);
+
+			// Limit master force
+			force.clamp(hapticDeviceSpecification[i].m_maxLinearForce);
+
+			// Limit master torque
+			torque.clamp(hapticDeviceSpecification[i].m_maxAngularTorque);
+
 			// Apply forces and torques (if supported)
 			hapticDevice[i]->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
+
+			/* END DANGER ZONE
+			 * ================================================================
+			 */
 		}
 	}
 
@@ -257,9 +280,7 @@ void updateJACO(void)
 	cout << endl << "JACO initialization done" << endl;
 
 	CartesianPosition lastPosition;
-	FingersPosition estimatedFingerPosition;
 	MyGetCartesianPosition(lastPosition);
-	estimatedFingerPosition = lastPosition.Fingers;
 
 	auto startTime = Clock::now();
 	auto prevTime = startTime;
@@ -366,7 +387,41 @@ void updateJACO(void)
 		);
 
 		rFinal = desiredEulerAnglesXYZRad;
-		cout << rFinal.str(3) << endl;
+
+		// Compute finger commands
+		float fingerCommand = 0;
+		if (useGripperControl)
+		{
+			// Convert gripper angle to [0 to 1] (0=closed, 1=open)
+			float gripperOpenAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
+
+			// Apply square scaling to gripperOpenAmount to create a dead zone
+			gripperOpenAmount *= fabs(gripperOpenAmount);
+
+			// Compute finger velocity based on master position
+			// JACO positions are finger-closed = high commands
+			fingerCommand = (gripperOpenAmount * -2.0f + 1.0f) * FINGER_MAX_TURN;
+		}
+		
+
+		/* ================================================================
+		* DANGER ZONE - THINK VERY CAREFULLY BEFORE MODIFYING THE
+		* BELOW LINES - THESE ARE A SAFETY CHECK SO YOU DON'T DAMAGE
+		* YOUR HARDWARE
+		*/
+
+		// Limit velocity
+		vFinal.clamp(robotConfig.MaxTranslationVelocity);
+
+		// Limit rates
+		rFinal.clamp(robotConfig.MaxOrientationVelocity);
+
+		// Limit finger velocity
+		float sign = (fingerCommand < 0) ? -1 : 1;
+		fingerCommand = sign * fmin(
+			fabs(fingerCommand),
+			fabs(FINGER_MAX_TURN)
+		);
 
 		// Set the commanded pose
 		TrajectoryPoint pointToSend;
@@ -381,42 +436,17 @@ void updateJACO(void)
 		pointToSend.Position.CartesianPosition.ThetaY = rFinal.y();
 		pointToSend.Position.CartesianPosition.ThetaZ = rFinal.z();
 
-		float fingerCommand = 0;
-		if (useGripperControl)
-		{
-			// Convert gripper angle to [0 to 1] (0=closed, 1=open)
-			float gripperOpenAmount = masterPose.gripperAngleRad / hapticDeviceSpecification[0].m_gripperMaxAngleRad;
-
-			// Apply square scaling to gripperOpenAmount to create a dead zone
-			gripperOpenAmount *= fabs(gripperOpenAmount);
-
-			// Compute finger velocity based on master position
-			// JACO positions are finger-closed = high commands
-			fingerCommand = (gripperOpenAmount * -2.0f + 1.0f) * FINGER_MAX_TURN;
-		}
-
 		pointToSend.Position.HandMode = HAND_MODE::VELOCITY_MODE;
 		pointToSend.Position.Fingers.Finger1 = fingerCommand;
 		pointToSend.Position.Fingers.Finger2 = fingerCommand;
 		pointToSend.Position.Fingers.Finger3 = fingerCommand;
 
-		// Calculate delta with estimated position this frame
-		FingersPosition fingerDelta;
-		fingerDelta.Finger1 = estimatedFingerPosition.Finger1 - currentPose.Fingers.Finger1;
-		fingerDelta.Finger2 = estimatedFingerPosition.Finger2 - currentPose.Fingers.Finger2;
-		fingerDelta.Finger3 = estimatedFingerPosition.Finger3 - currentPose.Fingers.Finger3;
-		averageFingerDelta = (fingerDelta.Finger1 + fingerDelta.Finger2 + fingerDelta.Finger3) / 3.0f;
-				
-		// Normalize penetration delta to +- 1.0
-		averageFingerDelta /= FINGER_MAX_TURN;
-
-		// Integrate finger velocities to estimate next frame's finger positions
-		estimatedFingerPosition.Finger1 = currentPose.Fingers.Finger1 + fingerCommand;
-		estimatedFingerPosition.Finger2 = currentPose.Fingers.Finger2 + fingerCommand;
-		estimatedFingerPosition.Finger3 = currentPose.Fingers.Finger3 + fingerCommand;
-
 		// Send the command
 		MySendBasicTrajectory(pointToSend);
+
+		/* END DANGER ZONE
+		 * ================================================================
+		 */
 
 		// Rate-limit the control loop
 		Sleep((DWORD)(1.0f / (RateControlLoopHz * 1e-3)));
