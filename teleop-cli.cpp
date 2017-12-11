@@ -100,6 +100,7 @@ cHapticDeviceInfo hapticDeviceSpecification[MAX_HAPTIC_DEVICES];
 HapticDevicePose hapticDevicePose[MAX_HAPTIC_DEVICES];
 int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
+ClientConfigurations robotConfig;
 
 // Average virtual penetration distance (in 'turns') of the robot fingers
 float averageFingerDelta = 0;
@@ -111,7 +112,7 @@ bool useGripperControl = true;
 
 ControlMode JACOControlMode = ControlMode::E_RATE;
 
-double masterWorkspaceScaling = 2.0f;
+double masterWorkspaceScaling = 0.5f;
 double masterWorkspaceAngularScaling = 1.0f;
 float PositionControlLoopHz = 5;
 
@@ -119,7 +120,7 @@ double masterVelocityScaling = 3.0f;
 double masterAngularRateScaling = 1.0f;
 float VelocityControlLoopHz = 200;
 
-double masterRateWorkspaceScaling = 10.0f;
+double masterRateWorkspaceScaling = 5.0f;
 double masterRateWorkspaceAngularRateScaling = 1.0f;
 float RateControlLoopHz = 200;
 
@@ -274,6 +275,7 @@ void updateJACO(void)
 
 	// JACO initialisation
 	MySetCartesianControl();
+	MyGetClientConfigurations(robotConfig);
 	MySendBasicTrajectory(zeroPose);
 
 	cout << endl << "JACO initialization done" << endl;
@@ -301,10 +303,10 @@ void updateJACO(void)
 		// XXX TODO ajs 07/Dec/17 Race condition here
 		HapticDevicePose masterPose = hapticDevicePose[0];
 
+		// Scale master position down by maximum workspace radius
+		masterPose.position /= hapticDeviceSpecification[0].m_workspaceRadius;
+
 		// Rotation matrix to go from the haptic master to the JACO base
-		/* XXX ajs 08/Dec/2017 This rotation works for a right-hand haptic master,
-		 * but might need to be inverted (-90 degrees) for a left-handed one?
-		 */
 		cMatrix3d masterToJACOBase(
 			0,
 			0,
@@ -336,7 +338,7 @@ void updateJACO(void)
 				}
 
 				// Apply workspace scaling
-				cVector3d desiredVelocityMetersPerSecondMaster = masterPose.linearVelocity * masterVelocityScaling;
+				cVector3d desiredVelocityMetersPerSecondMaster = masterPose.linearVelocity * robotConfig.MaxTranslationVelocity * masterVelocityScaling;
 
 				// Transform to robot base frame
 				cVector3d desiredVelocityMetersPerSecond = masterToJACOBase * desiredVelocityMetersPerSecondMaster;
@@ -392,7 +394,7 @@ void updateJACO(void)
 				// Rate control uses the position of the haptic master to drive the velocity of the arm
 
 				// Apply workspace scaling
-				cVector3d desiredPositionMetersMaster = masterPose.position * masterRateWorkspaceScaling;
+				cVector3d desiredPositionMetersMaster = masterPose.position * robotConfig.MaxTranslationVelocity * masterRateWorkspaceScaling;
 
 				// Transform to robot base frame
 				cVector3d desiredPositionMeters = masterToJACOBase * desiredPositionMetersMaster;

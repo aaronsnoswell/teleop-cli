@@ -42,15 +42,16 @@ namespace jacowrapper
 	// Function pointers to the functions we need
 	int(*MyInitAPI)();
 	int(*MyCloseAPI)();
-	int(*MyGetDevices)(KinovaDevice devices[MAX_KINOVA_DEVICE], int &result);
-	int(*MySetActiveDevice)(KinovaDevice device);
+	int(*MyGetDevices)(KinovaDevice [MAX_KINOVA_DEVICE], int &);
+	int(*MyGetClientConfigurations)(ClientConfigurations &);
+	int(*MySetActiveDevice)(KinovaDevice);
 	int(*MyMoveHome)();
 	int(*MyInitFingers)();
 	int(*MySetCartesianControl)();
 	int(*MyGetCartesianPosition)(CartesianPosition &);
 	int(*MyGetCartesianCommand)(CartesianPosition &);
 	int(*MyGetGripperStatus)(Gripper &);
-	int(*MySendBasicTrajectory)(TrajectoryPoint command);
+	int(*MySendBasicTrajectory)(TrajectoryPoint);
 
 
 	// Define a reachable TrajectoryPoint that we use as our zero pose
@@ -94,8 +95,9 @@ namespace jacowrapper
 		// We load the functions from the library (Under Windows, use GetProcAddress)
 		MyInitAPI = (int(*)()) GetProcAddress(commandLayer_handle, "InitAPI");
 		MyCloseAPI = (int(*)()) GetProcAddress(commandLayer_handle, "CloseAPI");
-		MyGetDevices = (int(*)(KinovaDevice devices[MAX_KINOVA_DEVICE], int &result)) GetProcAddress(commandLayer_handle, "GetDevices");
-		MySetActiveDevice = (int(*)(KinovaDevice devices)) GetProcAddress(commandLayer_handle, "SetActiveDevice");
+		MyGetDevices = (int(*)(KinovaDevice [MAX_KINOVA_DEVICE], int &)) GetProcAddress(commandLayer_handle, "GetDevices");
+		MyGetClientConfigurations = (int(*)(ClientConfigurations &)) GetProcAddress(commandLayer_handle, "GetClientConfigurations");
+		MySetActiveDevice = (int(*)(KinovaDevice)) GetProcAddress(commandLayer_handle, "SetActiveDevice");
 		MyMoveHome = (int(*)()) GetProcAddress(commandLayer_handle, "MoveHome");
 		MyInitFingers = (int(*)()) GetProcAddress(commandLayer_handle, "InitFingers");
 		MySetCartesianControl = (int(*)()) GetProcAddress(commandLayer_handle, "SetCartesianControl");
@@ -109,6 +111,7 @@ namespace jacowrapper
 			(MyInitAPI == NULL) ||
 			(MyCloseAPI == NULL) ||
 			(MyGetDevices == NULL) ||
+			(MyGetClientConfigurations == NULL) ||
 			(MySetActiveDevice == NULL) ||
 			(MyMoveHome == NULL) ||
 			(MyInitFingers == NULL) ||
