@@ -49,6 +49,7 @@ namespace jacowrapper
 	int(*MySetCartesianControl)();
 	int(*MyGetCartesianPosition)(CartesianPosition &);
 	int(*MyGetCartesianCommand)(CartesianPosition &);
+	int(*MyGetGripperStatus)(Gripper &);
 	int(*MySendBasicTrajectory)(TrajectoryPoint command);
 
 
@@ -100,6 +101,7 @@ namespace jacowrapper
 		MySetCartesianControl = (int(*)()) GetProcAddress(commandLayer_handle, "SetCartesianControl");
 		MyGetCartesianPosition = (int(*)(CartesianPosition &)) GetProcAddress(commandLayer_handle, "GetCartesianPosition");
 		MyGetCartesianCommand = (int(*)(CartesianPosition &)) GetProcAddress(commandLayer_handle, "GetCartesianCommand");
+		MyGetGripperStatus = (int(*)(Gripper &)) GetProcAddress(commandLayer_handle, "GetGripperStatus");
 		MySendBasicTrajectory = (int(*)(TrajectoryPoint)) GetProcAddress(commandLayer_handle, "SendBasicTrajectory");
 
 		// Verify that all functions has been loaded correctly
@@ -113,6 +115,7 @@ namespace jacowrapper
 			(MySetCartesianControl == NULL) ||
 			(MyGetCartesianPosition == NULL) ||
 			(MyGetCartesianCommand == NULL) ||
+			(MyGetGripperStatus == NULL) ||
 			(MySendBasicTrajectory == NULL)
 			)
 

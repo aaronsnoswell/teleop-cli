@@ -1,7 +1,8 @@
 // Simple CLI app to tele operate the jaco arm from the omega.7
 
-#include <conio.h>
 #include <thread>
+#include <chrono>
+#include <conio.h>
 
 // CHAI3D header
 #include "chai3d.h"
@@ -30,6 +31,10 @@
 using namespace chai3d;
 using namespace std;
 using namespace jacowrapper;
+
+
+// We use chrono::high_resolution_clock for timing
+typedef std::chrono::high_resolution_clock Clock;
 
 
 /**
@@ -95,6 +100,9 @@ cHapticDeviceInfo hapticDeviceSpecification[MAX_HAPTIC_DEVICES];
 HapticDevicePose hapticDevicePose[MAX_HAPTIC_DEVICES];
 int kinovaDeviceCount = 0;
 int hapticDeviceCount = 0;
+
+// Average virtual penetration distance (in 'turns') of the robot fingers
+float averageFingerDelta = 0;
 
 // Demo configuration flags
 bool useDamping = false;
@@ -173,6 +181,9 @@ void updateHaptics(void)
 	// main haptic simulation loop
 	while (hapticSimulationRunning)
 	{
+		// Update frequency counter
+		freqCounterHaptics.signal(1);
+
 		for (int i = 0; i<hapticDeviceCount; i++)
 		{
 			// Read status
@@ -182,6 +193,21 @@ void updateHaptics(void)
 			cVector3d force(0, 0, 0);
 			cVector3d torque(0, 0, 0);
 			double gripperForce = 0.0;
+
+			// Get robot finger position delta and caclulate virtual force feedback
+			if (useGripperControl)
+			{
+				/* XXX ajs 11/Dec/2017 The virtual force model, when based on
+				 * average virtual finer penetration, gets into oscillatory modes
+				 * around the zero point. With large master gripper force values,
+				 * this can quickly cause the master gripper cable to come untangled
+				 * from the motor drive barrel. Need to find a better way of implementing
+				 * virtual force feedback
+				 */
+				//double Kp = hapticDeviceSpecification[i].m_maxGripperForce * 0.4; // [N]
+				//gripperForce += Kp * averageFingerDelta;
+				gripperForce = 0;
+			}
 
 			// Desired state
 			cVector3d desiredPosition;
@@ -230,9 +256,6 @@ void updateHaptics(void)
 			// Apply forces and torques (if supported)
 			hapticDevice[i]->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
 		}
-
-		// Update frequency counter
-		freqCounterHaptics.signal(1);
 	}
 
 	// Exit haptics thread
@@ -255,9 +278,22 @@ void updateJACO(void)
 
 	cout << endl << "JACO initialization done" << endl;
 
+	CartesianPosition lastPosition;
+	FingersPosition estimatedFingerPosition;
+	MyGetCartesianPosition(lastPosition);
+	estimatedFingerPosition = lastPosition.Fingers;
+
+	auto startTime = Clock::now();
+	auto prevTime = startTime;
+	double runTimeSeconds = 0;
+
 	// Main JACO2 loop
 	while (JACOSimulationRunning)
 	{
+		auto nowTime = Clock::now();
+		runTimeSeconds = chrono::duration<double>(nowTime - startTime).count();
+		chrono::seconds deltaSeconds = chrono::duration_cast<chrono::seconds>(nowTime - prevTime);
+		
 		// Update frequency counter
 		freqCounterJACO.signal(1);
 
@@ -405,7 +441,7 @@ void updateJACO(void)
 					// Apply square scaling to gripperOpenAmount to create a dead zone
 					gripperOpenAmount *= fabs(gripperOpenAmount);
 
-					// Compute and send finger position
+					// Compute finger velocity based on master position
 					// JACO positions are finger-closed = high commands
 					fingerCommand = (gripperOpenAmount * -2.0f + 1.0f) * FINGER_MAX_TURN;
 				}
@@ -414,6 +450,25 @@ void updateJACO(void)
 				pointToSend.Position.Fingers.Finger1 = fingerCommand;
 				pointToSend.Position.Fingers.Finger2 = fingerCommand;
 				pointToSend.Position.Fingers.Finger3 = fingerCommand;
+
+				// Get robot pose
+				CartesianPosition currentPos;
+				MyGetCartesianCommand(currentPos);
+
+				// Calculate delta with estimated position this frame
+				FingersPosition fingerDelta;
+				fingerDelta.Finger1 = estimatedFingerPosition.Finger1 - currentPos.Fingers.Finger1;
+				fingerDelta.Finger2 = estimatedFingerPosition.Finger2 - currentPos.Fingers.Finger2;
+				fingerDelta.Finger3 = estimatedFingerPosition.Finger3 - currentPos.Fingers.Finger3;
+				averageFingerDelta = (fingerDelta.Finger1 + fingerDelta.Finger2 + fingerDelta.Finger3) / 3.0f;
+				
+				// Normalize penetration delta to +- 1.0
+				averageFingerDelta /= FINGER_MAX_TURN;
+
+				// Integrate finger velocities to estimate next frame's finger positions
+				estimatedFingerPosition.Finger1 = currentPos.Fingers.Finger1 + fingerCommand;
+				estimatedFingerPosition.Finger2 = currentPos.Fingers.Finger2 + fingerCommand;
+				estimatedFingerPosition.Finger3 = currentPos.Fingers.Finger3 + fingerCommand;
 
 				// Send the command
 				MySendBasicTrajectory(pointToSend);
