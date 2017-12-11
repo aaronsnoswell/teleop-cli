@@ -352,40 +352,21 @@ void updateJACO(void)
 		cVector3d velocityInBaseFrame = EEFToBase * velocityInEEFFrame;
 		vFinal = velocityInBaseFrame;
 
-		/*
-		// Convert master rotation to EEF rotation
-		cMatrix3d masterRotationInEEFFrame = masterToEEF * masterPose.rotation;
-
-		// Convert rotation to Euler angles
-		cVector3d rotationInEEFFrame = rotationMatrixToEulerAngles(masterRotationInEEFFrame);
+		// Convert master rotation to Euler angles
+		cVector3d masterEulerAngles = rotationMatrixToEulerAngles(masterPose.rotation);
 
 		// Apply workspace scaling to get rates
-		cVector3d ratesInEEFFrame = rotationInEEFFrame * masterRateWorkspaceAngularRateScaling;
+		cVector3d masterEulerRates = masterEulerAngles * masterRateWorkspaceAngularRateScaling;
 
 		// Apply square scaling to create a dead zone
-		ratesInEEFFrame = cVector3d(
-			ratesInEEFFrame.x() * fabs(ratesInEEFFrame.x()),
-			ratesInEEFFrame.y() * fabs(ratesInEEFFrame.y()),
-			ratesInEEFFrame.z() * fabs(ratesInEEFFrame.z())
-		);
-		*/
-
-		// Get desired Euler angles in master frame
-		cVector3d desiredEulerAnglesXYZRadMaster = rotationMatrixToEulerAngles(masterPose.rotation) * masterRateWorkspaceAngularRateScaling;
-
-		// Transform to robot end effector frame
-		cVector3d desiredEulerAnglesXYZRad(
-			desiredEulerAnglesXYZRadMaster.y() * -1,
-			desiredEulerAnglesXYZRadMaster.z() * +1,
-			desiredEulerAnglesXYZRadMaster.x() * -1
+		masterEulerRates = cVector3d(
+			masterEulerRates.x() * fabs(masterEulerRates.x()),
+			masterEulerRates.y() * fabs(masterEulerRates.y()),
+			masterEulerRates.z() * fabs(masterEulerRates.z())
 		);
 
-		desiredEulerAnglesXYZRad = cVector3d(
-			desiredEulerAnglesXYZRad.x() * fabs(desiredEulerAnglesXYZRad.x()),
-			desiredEulerAnglesXYZRad.y() * fabs(desiredEulerAnglesXYZRad.y()),
-			desiredEulerAnglesXYZRad.z() * fabs(desiredEulerAnglesXYZRad.z())
-		);
-
+		// Convert to EEF frame
+		cVector3d desiredEulerAnglesXYZRad = masterToEEF * masterEulerRates;
 		rFinal = desiredEulerAnglesXYZRad;
 
 		// Compute finger commands
