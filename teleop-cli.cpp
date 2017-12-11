@@ -265,6 +265,16 @@ void updateJACO(void)
 	auto prevTime = startTime;
 	double runTimeSeconds = 0;
 
+	/* Matrix that converts from master to EEF frame
+	 * (the master frame is a rotated child of the EEF frame,
+	 * hence this is constant)
+	 */
+	cMatrix3d masterToEEF(
+		+0, -1, +0,
+		+0, +0, +1,
+		-1, +0, +0
+	);
+
 	// Main JACO2 loop
 	while (JACOSimulationRunning)
 	{
@@ -282,23 +292,62 @@ void updateJACO(void)
 		// Scale master position down by maximum workspace radius
 		masterPose.position /= hapticDeviceSpecification[0].m_workspaceRadius;
 
-		// Rotation matrix to go from the haptic master to the JACO base
-		cMatrix3d masterToJACOBase(
-			0,
-			0,
-			90,
-			cEulerOrder::C_EULER_ORDER_XYZ,
-			false,
-			true
+		// Get robot pose
+		CartesianPosition currentPose;
+		MyGetCartesianCommand(currentPose);
+
+		// We use 'rate' control - the position of the haptic master
+		// drives the velocity of the arm
+		cVector3d vFinal(0, 0, 0);
+		cVector3d rFinal(0, 0, 0);
+		
+		// Apply square scaling to create a dead zone
+		cVector3d masterPosition = cVector3d(
+			masterPose.position.x() * fabs(masterPose.position.x()),
+			masterPose.position.y() * fabs(masterPose.position.y()),
+			masterPose.position.z() * fabs(masterPose.position.z())
 		);
 
-		// We use 'rate' control - the position of the haptic master to drive the velocity of the arm
-
 		// Apply workspace scaling
-		cVector3d desiredPositionMetersMaster = masterPose.position * robotConfig.MaxTranslationVelocity * masterRateWorkspaceScaling;
+		masterPosition = masterPosition * masterRateWorkspaceScaling;
 
-		// Transform to robot base frame
-		cVector3d desiredPositionMeters = masterToJACOBase * desiredPositionMetersMaster;
+		// Convert to velocity
+		cVector3d masterVelocity = masterPosition * robotConfig.MaxTranslationVelocity;
+		
+		// Matrix that converts from EEF to Base frame
+		cMatrix3d EEFToBase(
+			currentPose.Coordinates.ThetaX,
+			currentPose.Coordinates.ThetaY,
+			currentPose.Coordinates.ThetaZ,
+			cEulerOrder::C_EULER_ORDER_XYZ,
+			true,
+			false
+		);
+
+		// Convert velocity to EEF frame
+		cVector3d velocityInEEFFrame = masterToEEF * masterVelocity;
+
+		// Convet velocity to base frame
+		cVector3d velocityInBaseFrame = EEFToBase * velocityInEEFFrame;
+		vFinal = velocityInBaseFrame;
+
+		/*
+		// Convert master rotation to EEF rotation
+		cMatrix3d masterRotationInEEFFrame = masterToEEF * masterPose.rotation;
+
+		// Convert rotation to Euler angles
+		cVector3d rotationInEEFFrame = rotationMatrixToEulerAngles(masterRotationInEEFFrame);
+
+		// Apply workspace scaling to get rates
+		cVector3d ratesInEEFFrame = rotationInEEFFrame * masterRateWorkspaceAngularRateScaling;
+
+		// Apply square scaling to create a dead zone
+		ratesInEEFFrame = cVector3d(
+			ratesInEEFFrame.x() * fabs(ratesInEEFFrame.x()),
+			ratesInEEFFrame.y() * fabs(ratesInEEFFrame.y()),
+			ratesInEEFFrame.z() * fabs(ratesInEEFFrame.z())
+		);
+		*/
 
 		// Get desired Euler angles in master frame
 		cVector3d desiredEulerAnglesXYZRadMaster = rotationMatrixToEulerAngles(masterPose.rotation) * masterRateWorkspaceAngularRateScaling;
@@ -310,30 +359,27 @@ void updateJACO(void)
 			desiredEulerAnglesXYZRadMaster.x() * -1
 		);
 
-		// Apply square scaling to rates to create a dead zone
-		desiredPositionMeters = cVector3d(
-			desiredPositionMeters.x() * fabs(desiredPositionMeters.x()),
-			desiredPositionMeters.y() * fabs(desiredPositionMeters.y()),
-			desiredPositionMeters.z() * fabs(desiredPositionMeters.z())
-		);
 		desiredEulerAnglesXYZRad = cVector3d(
 			desiredEulerAnglesXYZRad.x() * fabs(desiredEulerAnglesXYZRad.x()),
 			desiredEulerAnglesXYZRad.y() * fabs(desiredEulerAnglesXYZRad.y()),
 			desiredEulerAnglesXYZRad.z() * fabs(desiredEulerAnglesXYZRad.z())
 		);
 
+		rFinal = desiredEulerAnglesXYZRad;
+		cout << rFinal.str(3) << endl;
+
 		// Set the commanded pose
 		TrajectoryPoint pointToSend;
 		pointToSend.InitStruct();
 		pointToSend.Position.Type = CARTESIAN_VELOCITY;
-		pointToSend.Position.CartesianPosition.X = desiredPositionMeters.x();
-		pointToSend.Position.CartesianPosition.Y = desiredPositionMeters.y();
-		pointToSend.Position.CartesianPosition.Z = desiredPositionMeters.z();
+		pointToSend.Position.CartesianPosition.X = vFinal.x();
+		pointToSend.Position.CartesianPosition.Y = vFinal.y();
+		pointToSend.Position.CartesianPosition.Z = vFinal.z();
 
 		// JACO Euler Angles are in the end-effector local frame, XYZ order
-		pointToSend.Position.CartesianPosition.ThetaX = desiredEulerAnglesXYZRad.x();
-		pointToSend.Position.CartesianPosition.ThetaY = desiredEulerAnglesXYZRad.y();
-		pointToSend.Position.CartesianPosition.ThetaZ = desiredEulerAnglesXYZRad.z();
+		pointToSend.Position.CartesianPosition.ThetaX = rFinal.x();
+		pointToSend.Position.CartesianPosition.ThetaY = rFinal.y();
+		pointToSend.Position.CartesianPosition.ThetaZ = rFinal.z();
 
 		float fingerCommand = 0;
 		if (useGripperControl)
@@ -354,24 +400,20 @@ void updateJACO(void)
 		pointToSend.Position.Fingers.Finger2 = fingerCommand;
 		pointToSend.Position.Fingers.Finger3 = fingerCommand;
 
-		// Get robot pose
-		CartesianPosition currentPos;
-		MyGetCartesianCommand(currentPos);
-
 		// Calculate delta with estimated position this frame
 		FingersPosition fingerDelta;
-		fingerDelta.Finger1 = estimatedFingerPosition.Finger1 - currentPos.Fingers.Finger1;
-		fingerDelta.Finger2 = estimatedFingerPosition.Finger2 - currentPos.Fingers.Finger2;
-		fingerDelta.Finger3 = estimatedFingerPosition.Finger3 - currentPos.Fingers.Finger3;
+		fingerDelta.Finger1 = estimatedFingerPosition.Finger1 - currentPose.Fingers.Finger1;
+		fingerDelta.Finger2 = estimatedFingerPosition.Finger2 - currentPose.Fingers.Finger2;
+		fingerDelta.Finger3 = estimatedFingerPosition.Finger3 - currentPose.Fingers.Finger3;
 		averageFingerDelta = (fingerDelta.Finger1 + fingerDelta.Finger2 + fingerDelta.Finger3) / 3.0f;
 				
 		// Normalize penetration delta to +- 1.0
 		averageFingerDelta /= FINGER_MAX_TURN;
 
 		// Integrate finger velocities to estimate next frame's finger positions
-		estimatedFingerPosition.Finger1 = currentPos.Fingers.Finger1 + fingerCommand;
-		estimatedFingerPosition.Finger2 = currentPos.Fingers.Finger2 + fingerCommand;
-		estimatedFingerPosition.Finger3 = currentPos.Fingers.Finger3 + fingerCommand;
+		estimatedFingerPosition.Finger1 = currentPose.Fingers.Finger1 + fingerCommand;
+		estimatedFingerPosition.Finger2 = currentPose.Fingers.Finger2 + fingerCommand;
+		estimatedFingerPosition.Finger3 = currentPose.Fingers.Finger3 + fingerCommand;
 
 		// Send the command
 		MySendBasicTrajectory(pointToSend);
@@ -506,8 +548,8 @@ int main(int argc, char* argv[])
 		cVector3d pos = hapticDevicePose[0].position;
 
 		// Output current pos
-		cout << '\r';
-		cout << "Master position: " << pos.str(3);
+		//cout << '\r';
+		//cout << "Master position: " << pos.str(3);
 
 		/*
 		printf(
